@@ -1,0 +1,132 @@
+// InboxPilot durable data (ADR 0004). Email BODIES are never stored here: Redis only, 1 h TTL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String    @unique
+  name            String?
+  authMode        String    @map("auth_mode") // google (CHECK in migration)
+  refreshTokenEnc Bytes?    @map("refresh_token_enc") // AES-256-GCM iv|tag|data (Phase 4)
+  timezone        String    @default("Asia/Kolkata")
+  vipSenders      String[]  @default([]) @map("vip_senders")
+  llmProviders    String[]  @default([]) @map("llm_providers") // empty = server default order
+  llmKeysEnc      Bytes?    @map("llm_keys_enc") // user's own LLM API keys: AES-256-GCM JSON (ADR 0006)
+  gmailHistoryId  String?   @map("gmail_history_id") // incremental sync checkpoint (Gmail historyId)
+  lastSyncAt      DateTime? @map("last_sync_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  emails   Email[]
+  tasks    Task[]
+  syncRuns SyncRun[]
+  devices  RememberedDevice[]
+
+  @@map("users")
+}
+
+model Email {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  gmailId     String    @map("gmail_id")
+  threadId    String    @map("thread_id")
+  fromName    String?   @map("from_name")
+  fromEmail   String?   @map("from_email")
+  subject     String?
+  receivedAt  DateTime  @map("received_at") @db.Timestamptz(6)
+  status      String    @default("pending") // pending | processed | skipped | failed
+  skipReason  String?   @map("skip_reason")
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks Task[]
+
+  @@unique([userId, gmailId])
+  @@index([userId, receivedAt])
+  @@map("emails")
+}
+
+model Task {
+  /// agent id: t_ + sha1(gmail_id + normalised evidence); unique per user, stable across re-syncs
+  id              String    @db.Text
+  userId          String    @map("user_id") @db.Uuid
+  emailId         String    @map("email_id") @db.Uuid
+  title           String
+  details         String?
+  type            String
+  dueDate         DateTime? @map("due_date") @db.Date
+  dueAt           DateTime? @map("due_at") @db.Timestamptz(6)
+  hasTime         Boolean   @default(false) @map("has_time")
+  duePhrase       String?   @map("due_phrase")
+  dateSource      String    @map("date_source") // resolver | llm | none | user
+  dueOverridden   Boolean   @default(false) @map("due_overridden") // user edited: re-sync keeps it
+  priority        String
+  priorityScore   Int       @map("priority_score") @db.SmallInt // as scored at sync time
+  priorityBase    Int?      @map("priority_base") @db.SmallInt // date-independent points; re-scored on read
+  priorityReasons Json      @map("priority_reasons")
+  confidence      Float     @db.Real
+  evidence        String
+  extractedBy     String    @map("extracted_by")
+  status          String    @default("open") // open | done | snoozed | dismissed
+  snoozedUntil    DateTime? @map("snoozed_until") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email Email @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  @@id([userId, id])
+  @@index([userId, status, dueDate], map: "tasks_user_due")
+  @@map("tasks")
+}
+
+model SyncRun {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  status        String // queued | running | succeeded | failed
+  days          Int       @default(14) @db.SmallInt
+  stats         Json?
+  trace         Json?
+  providerUsage Json?     @map("provider_usage")
+  briefing      Json?
+  error         String?
+  startedAt     DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt    DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt(sort: Desc)])
+  @@map("sync_runs")
+}
+
+model AuditLog {
+  id     BigInt   @id @default(autoincrement())
+  userId String?  @map("user_id") @db.Uuid // no FK: deletion records outlive the user
+  action String
+  meta   Json?
+  at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([at])
+  @@map("audit_log")
+}
+
+/// "Remember this browser": one-click sign-in without a trip to Google (src/auth/devices.ts).
+model RememberedDevice {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  secretHash String   @map("secret_hash") // SHA-256 of the cookie secret; the secret is never stored
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastUsedAt DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("remembered_devices")
+}
