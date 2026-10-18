@@ -1,0 +1,37 @@
+[project]
+name = "inboxpilot-agent"
+version = "0.1.0"
+description = "InboxPilot agent service: emails in, prioritised tasks out."
+# Docker image targets 3.12; code stays 3.10-compatible so it also runs on older local interpreters.
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # unicode quotes/dashes appear on purpose in text-handling code
+
+[tool.ruff.lint.per-file-ignores]
+"app/llm/prompts.py" = ["E501"]  # prompt text is kept verbatim
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["app", "evals"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient`"]
+
+[tool.coverage.run]
+source = ["app", "evals"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
