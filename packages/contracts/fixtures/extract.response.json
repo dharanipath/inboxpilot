@@ -1,0 +1,140 @@
+{
+  "run_id": "run_0001",
+  "tasks": [
+    {
+      "id": "t_9f2c1a4b7d3e5f60718293a4b5c6d7e8f9012345",
+      "email_id": "msg_001",
+      "title": "Send the deck to Priya",
+      "details": null,
+      "type": "send",
+      "due_phrase": "before the call on Tuesday",
+      "due_date": "2026-10-20",
+      "due_at": null,
+      "has_time": false,
+      "date_source": "resolver",
+      "priority": "P3",
+      "priority_score": 21,
+      "priority_base": 8,
+      "priority_reasons": [
+        "Due in 4 days",
+        "Send request"
+      ],
+      "confidence": 0.86,
+      "evidence": "Can you send the deck before the call on Tuesday?",
+      "bucket": "week",
+      "source": {
+        "from_name": "Priya",
+        "from_email": "priya@example.com",
+        "subject": "Deck for Tuesday",
+        "received_at": "2026-10-14T11:02:00Z",
+        "thread_id": "thr_001"
+      },
+      "extracted_by": "groq/llama-3.3-70b-versatile"
+    }
+  ],
+  "skipped": [
+    {
+      "email_id": "msg_002",
+      "reason": "newsletter"
+    }
+  ],
+  "trace": [
+    {
+      "step": "preprocess",
+      "agent": "PreprocessAgent",
+      "status": "ok",
+      "duration_ms": 4,
+      "detail": null,
+      "counts": {
+        "in": 2,
+        "out": 2
+      }
+    },
+    {
+      "step": "triage",
+      "agent": "TriageAgent",
+      "status": "ok",
+      "duration_ms": 1,
+      "detail": "1 newsletter skipped",
+      "counts": {
+        "kept": 1,
+        "skipped": 1
+      }
+    },
+    {
+      "step": "extract",
+      "agent": "ExtractionAgent",
+      "status": "degraded",
+      "duration_ms": 2140,
+      "detail": "gemini rate-limited -> groq",
+      "counts": {
+        "items": 1
+      }
+    },
+    {
+      "step": "ground",
+      "agent": "GroundingAgent",
+      "status": "ok",
+      "duration_ms": 1,
+      "detail": null,
+      "counts": {
+        "kept": 1,
+        "dropped": 0
+      }
+    },
+    {
+      "step": "dates",
+      "agent": "TemporalAgent",
+      "status": "ok",
+      "duration_ms": 1,
+      "detail": null
+    },
+    {
+      "step": "priority",
+      "agent": "PriorityAgent",
+      "status": "ok",
+      "duration_ms": 1,
+      "detail": null
+    },
+    {
+      "step": "plan",
+      "agent": "PlannerAgent",
+      "status": "ok",
+      "duration_ms": 2,
+      "detail": "template briefing"
+    }
+  ],
+  "provider_usage": [
+    {
+      "provider": "gemini",
+      "model": "gemini-2.5-flash",
+      "calls": 1,
+      "failures": 1,
+      "latency_ms": 310,
+      "cache_hits": 0,
+      "last_error": "429 rate limited"
+    },
+    {
+      "provider": "groq",
+      "model": "llama-3.3-70b-versatile",
+      "calls": 1,
+      "failures": 0,
+      "latency_ms": 1820,
+      "cache_hits": 0,
+      "last_error": null
+    }
+  ],
+  "briefing": {
+    "headline": "1 thing this week",
+    "summary": "Nothing is due today. Send the deck to Priya before Tuesday's call.",
+    "generated_by": "template",
+    "counts": {
+      "overdue": 0,
+      "today": 0,
+      "week": 1,
+      "later": 0,
+      "undated": 0,
+      "needs_review": 0
+    }
+  }
+}
