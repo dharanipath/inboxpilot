@@ -1,0 +1,285 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 232 66% 54%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 95%;
+    --muted-foreground: 220 9% 40%;
+    --accent: 228 70% 96%;
+    --accent-foreground: 232 66% 40%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 89%;
+    --input: 220 13% 85%;
+    --ring: 232 66% 54%;
+    --success: 152 60% 36%;
+    --warning: 35 92% 45%;
+    --p0: 0 72% 48%;
+    --p1: 25 92% 45%;
+    --p2: 215 80% 48%;
+    --p3: 220 9% 46%;
+    --radius: 0.65rem;
+  }
+
+  .dark {
+    --background: 224 30% 7%;
+    --foreground: 220 20% 94%;
+    --card: 224 26% 10%;
+    --card-foreground: 220 20% 94%;
+    --popover: 224 26% 11%;
+    --popover-foreground: 220 20% 94%;
+    --primary: 232 80% 68%;
+    --primary-foreground: 224 30% 8%;
+    --secondary: 224 18% 16%;
+    --secondary-foreground: 220 20% 94%;
+    --muted: 224 18% 15%;
+    --muted-foreground: 220 12% 66%;
+    --accent: 232 30% 20%;
+    --accent-foreground: 232 90% 85%;
+    --destructive: 0 70% 58%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 224 16% 20%;
+    --input: 224 16% 24%;
+    --ring: 232 80% 68%;
+    --success: 152 55% 50%;
+    --warning: 38 92% 58%;
+    --p0: 0 80% 64%;
+    --p1: 28 92% 60%;
+    --p2: 212 90% 66%;
+    --p3: 220 12% 62%;
+  }
+
+  /* ------------------------------------------------------------------ colour themes
+     Light variants: :root[data-palette]:not(.dark); dark: :root.dark[data-palette].
+     Priority colours (--p0..--p3), success, warning and destructive are never changed. */
+
+  /* Inbox Zero: calm emerald */
+  :root[data-palette="inbox-zero"]:not(.dark) {
+    --background: 150 25% 97%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --primary: 161 94% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 150 18% 92%;
+    --muted: 150 16% 94%;
+    --muted-foreground: 160 8% 36%;
+    --accent: 152 55% 92%;
+    --accent-foreground: 161 94% 22%;
+    --border: 150 14% 87%;
+    --input: 150 14% 82%;
+    --ring: 161 94% 30%;
+  }
+  :root.dark[data-palette="inbox-zero"] {
+    --background: 165 30% 6%;
+    --card: 165 26% 9%;
+    --popover: 165 26% 10%;
+    --primary: 158 64% 52%;
+    --primary-foreground: 165 40% 8%;
+    --secondary: 165 18% 15%;
+    --muted: 165 18% 14%;
+    --muted-foreground: 155 10% 66%;
+    --accent: 160 35% 17%;
+    --accent-foreground: 155 70% 80%;
+    --border: 165 16% 19%;
+    --input: 165 16% 23%;
+    --ring: 158 64% 52%;
+  }
+
+  /* Paper & Ink: letter paper and fountain-pen navy; gold ink after dark */
+  :root[data-palette="paper-ink"]:not(.dark) {
+    --background: 40 38% 95%;
+    --foreground: 222 40% 14%;
+    --card: 42 45% 99%;
+    --card-foreground: 222 40% 14%;
+    --popover: 42 45% 99%;
+    --popover-foreground: 222 40% 14%;
+    --primary: 222 60% 32%;
+    --primary-foreground: 40 60% 97%;
+    --secondary: 38 30% 89%;
+    --secondary-foreground: 222 40% 14%;
+    --muted: 38 28% 91%;
+    --muted-foreground: 30 12% 36%;
+    --accent: 40 55% 88%;
+    --accent-foreground: 222 60% 26%;
+    --border: 36 24% 82%;
+    --input: 36 22% 76%;
+    --ring: 222 60% 38%;
+  }
+  :root.dark[data-palette="paper-ink"] {
+    --background: 30 12% 8%;
+    --foreground: 40 30% 92%;
+    --card: 30 10% 11%;
+    --card-foreground: 40 30% 92%;
+    --popover: 30 10% 12%;
+    --popover-foreground: 40 30% 92%;
+    --primary: 42 80% 66%;
+    --primary-foreground: 30 20% 8%;
+    --secondary: 30 8% 17%;
+    --secondary-foreground: 40 30% 92%;
+    --muted: 30 8% 15%;
+    --muted-foreground: 38 14% 66%;
+    --accent: 38 30% 18%;
+    --accent-foreground: 42 85% 80%;
+    --border: 30 8% 21%;
+    --input: 30 8% 25%;
+    --ring: 42 80% 66%;
+  }
+
+  /* Midnight Courier: the night-shift mail run, deep navy and signal cyan */
+  :root[data-palette="midnight"]:not(.dark) {
+    --background: 210 30% 97%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --primary: 199 89% 33%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 22% 92%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 212 12% 38%;
+    --accent: 199 80% 92%;
+    --accent-foreground: 199 89% 26%;
+    --border: 210 18% 87%;
+    --input: 210 18% 82%;
+    --ring: 199 89% 38%;
+  }
+  :root.dark[data-palette="midnight"] {
+    --background: 222 47% 6%;
+    --card: 222 42% 9%;
+    --popover: 222 42% 10%;
+    --primary: 190 90% 55%;
+    --primary-foreground: 222 47% 7%;
+    --secondary: 222 30% 15%;
+    --muted: 222 30% 14%;
+    --muted-foreground: 214 18% 68%;
+    --accent: 200 50% 17%;
+    --accent-foreground: 190 90% 80%;
+    --border: 222 28% 18%;
+    --input: 222 28% 22%;
+    --ring: 190 90% 55%;
+  }
+
+  /* Lavender Digest: a soft violet for reading the daily briefing */
+  :root[data-palette="lavender"]:not(.dark) {
+    --background: 260 30% 98%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --primary: 262 60% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 20% 93%;
+    --muted: 260 18% 95%;
+    --muted-foreground: 260 8% 40%;
+    --accent: 262 70% 94%;
+    --accent-foreground: 262 60% 40%;
+    --border: 260 16% 88%;
+    --input: 260 16% 83%;
+    --ring: 262 60% 55%;
+  }
+  :root.dark[data-palette="lavender"] {
+    --background: 258 30% 7%;
+    --card: 258 26% 10%;
+    --popover: 258 26% 11%;
+    --primary: 262 85% 75%;
+    --primary-foreground: 258 40% 9%;
+    --secondary: 258 18% 16%;
+    --muted: 258 18% 15%;
+    --muted-foreground: 258 12% 68%;
+    --accent: 262 32% 21%;
+    --accent-foreground: 262 90% 86%;
+    --border: 258 16% 20%;
+    --input: 258 16% 24%;
+    --ring: 262 85% 75%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------ live backgrounds
+   Aurora: soft glows in the theme's colours. While the agent works (.aurora-busy) they drift
+   faster and brighten a little. Decorative only; cards stay opaque above them. */
+.aurora {
+  position: absolute;
+  inset: 0;
+  --aurora-speed: 36s;
+}
+.aurora-busy {
+  --aurora-speed: 11s;
+}
+.aurora-blob {
+  position: absolute;
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.14;
+  transition: opacity 1.2s ease;
+  animation: aurora-drift var(--aurora-speed) ease-in-out infinite alternate;
+}
+.aurora-busy .aurora-blob {
+  opacity: 0.24;
+}
+.aurora-a {
+  background: hsl(var(--primary));
+  top: -22vmax;
+  left: -12vmax;
+}
+.aurora-b {
+  background: hsl(var(--accent-foreground));
+  bottom: -26vmax;
+  right: -16vmax;
+  animation-delay: -12s;
+}
+.aurora-c {
+  background: hsl(var(--ring));
+  top: 32%;
+  left: 42%;
+  width: 34vmax;
+  height: 34vmax;
+  animation-delay: -24s;
+}
+@keyframes aurora-drift {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(8vmax, 6vmax) scale(1.08);
+  }
+  100% {
+    transform: translate(-6vmax, 10vmax) scale(0.95);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob {
+    animation: none; /* a still glow, not a flicker */
+  }
+}
