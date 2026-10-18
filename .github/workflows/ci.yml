@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: services/agent } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -57,7 +57,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://inboxpilot:inboxpilot@localhost:5432/inboxpilot_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: apps/web } }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -93,7 +93,7 @@ jobs:
     name: contract · agent ⇄ gateway
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "${{ env.PYTHON_VERSION }}", cache: pip, cache-dependency-path: services/agent/requirements*.txt }
       - uses: actions/setup-node@v4
@@ -131,7 +131,7 @@ jobs:
       # the Playwright config runs its own gateway; point it at this job's database
       E2E_DATABASE_URL: postgresql://inboxpilot:inboxpilot@localhost:5432/inboxpilot
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with: { python-version: "${{ env.PYTHON_VERSION }}" }
       - uses: actions/setup-node@v4
@@ -162,7 +162,7 @@ jobs:
     name: security · secrets + dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }
       - name: gitleaks (secrets in history)
         uses: gitleaks/gitleaks-action@v2
@@ -185,5 +185,5 @@ jobs:
     runs-on: ubuntu-latest
     needs: [agent, api, web]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker compose build
