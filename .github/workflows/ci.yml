@@ -23,7 +23,7 @@ jobs:
     defaults: { run: { working-directory: services/agent } }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -94,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "${{ env.PYTHON_VERSION }}", cache: pip, cache-dependency-path: services/agent/requirements*.txt }
       - uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: services/api/package-lock.json }
@@ -132,7 +132,7 @@ jobs:
       E2E_DATABASE_URL: postgresql://inboxpilot:inboxpilot@localhost:5432/inboxpilot
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "${{ env.PYTHON_VERSION }}" }
       - uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}" }
@@ -170,7 +170,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}" }
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "${{ env.PYTHON_VERSION }}" }
       - name: npm audit (runtime deps, high+)
         run: |
