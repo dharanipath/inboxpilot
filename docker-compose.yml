@@ -1,0 +1,104 @@
+# InboxPilot: the whole stack with one command (`make dev`, or `docker compose up --build`).
+# Needs Google OAuth credentials in .env (see .env.example). Without LLM keys extraction is
+# rules-only.
+name: inboxpilot
+
+x-secrets: &secrets
+  # local-dev defaults so `docker compose up` just works; override in .env for anything real
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-local-dev-internal-key-change-me}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: inboxpilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-inboxpilot}
+      POSTGRES_DB: inboxpilot
+    ports:
+      - "127.0.0.1:5432:5432" # host access for local tests; drop in production
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inboxpilot"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  agent:
+    build: ./services/agent
+    environment:
+      <<: *secrets
+      REDIS_URL: redis://redis:6379/1
+      LLM_PROVIDERS: ${LLM_PROVIDERS:-gemini,groq,github,cerebras,openrouter,mistral,hf,ollama,heuristic}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      HF_TOKEN: ${HF_TOKEN:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1:8b}
+    # no ports: the agent is reachable only from the gateway, on the private network
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: services/api/Dockerfile
+    environment:
+      <<: *secrets
+      DATABASE_URL: postgresql://inboxpilot:${POSTGRES_PASSWORD:-inboxpilot}@postgres:5432/inboxpilot
+      REDIS_URL: redis://redis:6379/0
+      AGENT_URL: http://agent:8000
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-me-0123456789}
+      WEB_ORIGINS: ${WEB_ORIGINS:-http://localhost:5173}
+      WEB_APP_URL: ${WEB_APP_URL:-http://localhost:5173}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false} # plain http on localhost; set true behind HTTPS
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:5173/api/auth/google/callback}
+      TOKEN_ENC_KEY: ${TOKEN_ENC_KEY:-}
+    ports:
+      - "127.0.0.1:4000:4000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      agent: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
+    build: ./apps/web
+    ports:
+      - "127.0.0.1:5173:80" # open http://localhost:5173
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+
+  # fully local LLM: `docker compose --profile ollama up`, then
+  # `docker compose exec ollama ollama pull llama3.1:8b` and set OLLAMA_BASE_URL=http://ollama:11434
+  ollama:
+    image: ollama/ollama:0.6.8
+    profiles: ["ollama"]
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  pgdata:
+  ollama:

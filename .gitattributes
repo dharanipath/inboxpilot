@@ -1,0 +1,7 @@
+# Store text files with Unix line endings so the Makefile, Dockerfiles and scripts work on Linux/macOS CI too.
+* text=auto eol=lf
+
+# Binary files: never convert
+*.png binary
+*.jpg binary
+*.ico binary

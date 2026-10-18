@@ -1,0 +1,189 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ---------------------------------------------------------------- Python agent
+  agent:
+    name: agent · lint, types, tests
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: services/agent } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: services/agent/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check app tests evals
+      - run: ruff format --check app tests evals
+      - run: mypy
+      - run: pytest --cov --cov-report=term-missing # fails under 80 %
+      - name: Eval (rules baseline, no LLM keys)
+        run: python -m evals.run_evals --providers heuristic
+
+  # ---------------------------------------------------------------- Node gateway
+  api:
+    name: api · lint, types, tests
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: services/api } }
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: inboxpilot
+          POSTGRES_PASSWORD: inboxpilot
+          POSTGRES_DB: inboxpilot_test
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U inboxpilot" --health-interval 3s --health-retries 30
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql://inboxpilot:inboxpilot@localhost:5432/inboxpilot_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: services/api/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx prisma migrate deploy
+      - run: npm run test:cov
+
+  # ---------------------------------------------------------------- React web app
+  web:
+    name: web · lint, types, tests, build
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:cov
+      - run: npx vite build
+
+  # ---------------------------------------------------------------- shared contract, both directions
+  contract:
+    name: contract · agent ⇄ gateway
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}", cache: pip, cache-dependency-path: services/agent/requirements*.txt }
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: services/api/package-lock.json }
+      - name: Python side (Pydantic models ⇄ schema, agent output validates)
+        working-directory: services/agent
+        run: |
+          pip install -r requirements-dev.txt
+          pytest tests/test_contract.py tests/test_api.py -q
+      - name: Node side (Ajv validates fixtures, client rejects drift)
+        working-directory: services/api
+        run: |
+          npm ci
+          npx prisma generate
+          npx vitest run tests/contract.test.ts
+
+  # ---------------------------------------------------------------- end to end
+  e2e:
+    name: e2e · Playwright on the real stack
+    runs-on: ubuntu-latest
+    needs: [agent, api, web]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: inboxpilot, POSTGRES_PASSWORD: inboxpilot, POSTGRES_DB: inboxpilot }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U inboxpilot" --health-interval 3s --health-retries 30
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 3s --health-retries 30
+    env:
+      CI: "1"
+      DATABASE_URL: postgresql://inboxpilot:inboxpilot@localhost:5432/inboxpilot
+      # the Playwright config runs its own gateway; point it at this job's database
+      E2E_DATABASE_URL: postgresql://inboxpilot:inboxpilot@localhost:5432/inboxpilot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+      - name: Agent venv (the Playwright config starts it)
+        working-directory: services/agent
+        run: python -m venv .venv && .venv/bin/pip install -r requirements.txt
+      - name: Gateway deps + migrations
+        working-directory: services/api
+        run: npm ci && npx prisma generate && npx prisma migrate deploy
+      - name: Web deps + browser
+        working-directory: apps/web
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Playwright (desktop + 375 px)
+        working-directory: apps/web
+        run: npx playwright test
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
+  # ---------------------------------------------------------------- supply chain + secrets
+  security:
+    name: security · secrets + dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: gitleaks (secrets in history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - name: npm audit (runtime deps, high+)
+        run: |
+          (cd services/api && npm audit --omit=dev --audit-level=high)
+          (cd apps/web && npm audit --omit=dev --audit-level=high)
+      - name: pip-audit
+        run: pip install pip-audit && pip-audit -r services/agent/requirements.txt
+
+  # ---------------------------------------------------------------- images build
+  docker:
+    name: docker · images build
+    runs-on: ubuntu-latest
+    needs: [agent, api, web]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build

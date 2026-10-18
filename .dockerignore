@@ -1,0 +1,17 @@
+# repo-root context (used by services/api): never ship secrets or local build output
+.env
+**/.env
+**/.env.*
+!.env.example
+**/node_modules
+**/.venv
+**/__pycache__
+**/dist
+**/coverage
+**/test-results
+**/playwright-report
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+services/agent/evals/results
+apps/web
