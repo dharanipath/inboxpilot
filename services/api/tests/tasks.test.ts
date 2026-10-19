@@ -317,7 +317,7 @@ describe("priority is re-scored for today (SPEC Q11)", () => {
       return found;
     };
     const tomorrow = await get();
-    expect(tomorrow).toMatchObject({ priority: "P1", priority_score: 62 }); // (32 + 30) * 1.0
+    expect(tomorrow).toMatchObject({ priority: "P1", priority_score: 72 }); // (42 + 30) * 1.0
     expect(tomorrow.priority_reasons[0]).toBe("Due tomorrow");
 
     // a day passes: same row, now due today
@@ -326,7 +326,7 @@ describe("priority is re-scored for today (SPEC Q11)", () => {
       data: { dueDate: new Date(`${today}T00:00:00Z`) },
     });
     const dueToday = await get();
-    expect(dueToday).toMatchObject({ priority: "P0", priority_score: 70 });
+    expect(dueToday).toMatchObject({ priority: "P0", priority_score: 100 });
     expect(dueToday.priority_reasons[0]).toBe("Due today");
 
     const p0 = await t.http.get("/api/tasks?priority=P0").set("cookie", cookie).expect(200);

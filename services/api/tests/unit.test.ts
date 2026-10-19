@@ -254,8 +254,8 @@ describe("read-time re-scoring (shared table with the Python agent)", () => {
       base: 8,
     };
     expect(rescore(stored, "2026-10-17", 0.86, "2026-10-16")).toEqual({
-      score: 38,
-      priority: "P2",
+      score: 47,
+      priority: "P1",
       reasons: ["Due tomorrow", "Send request"],
     });
     expect(rescore({ ...stored, base: null }, "2026-10-17", 0.86, "2026-10-16")).toEqual({

@@ -12,9 +12,9 @@ const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
 export function urgency(dueDate: string | null, today: string): [points: number, label: string] {
   if (dueDate === null) return [4, "No due date"];
   const days = daysBetween(today, dueDate);
-  if (days < 0) return [45, `Overdue by ${plural(-days, "day")}`];
-  if (days === 0) return [40, "Due today"];
-  if (days === 1) return [32, "Due tomorrow"];
+  if (days < 0) return [80, `Overdue by ${plural(-days, "day")}`];
+  if (days === 0) return [75, "Due today"]; // due today (or overdue) is P0: it alone reaches the P0 line
+  if (days === 1) return [42, "Due tomorrow"];
   const label = `Due in ${days} days`;
   if (days <= 3) return [24, label];
   if (days <= 7) return [14, label];
@@ -22,9 +22,9 @@ export function urgency(dueDate: string | null, today: string): [points: number,
 }
 
 export function priorityForScore(score: number): Priority {
-  if (score >= 70) return "P0";
-  if (score >= 50) return "P1";
-  if (score >= 30) return "P2";
+  if (score >= 75) return "P0";
+  if (score >= 45) return "P1";
+  if (score >= 28) return "P2";
   return "P3";
 }
 

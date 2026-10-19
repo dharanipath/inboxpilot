@@ -37,11 +37,11 @@ class PriorityResult:
 
 
 def priority_for_score(score: int) -> Priority:
-    if score >= 70:
+    if score >= 75:
         return "P0"
-    if score >= 50:
+    if score >= 45:
         return "P1"
-    if score >= 30:
+    if score >= 28:
         return "P2"
     return "P3"
 
@@ -55,11 +55,11 @@ def _urgency(due_date: date | None, today: date) -> tuple[int, str]:
         return 4, "No due date"
     days = (due_date - today).days
     if days < 0:
-        return 45, f"Overdue by {_plural(-days, 'day')}"
+        return 80, f"Overdue by {_plural(-days, 'day')}"
     if days == 0:
-        return 40, "Due today"
+        return 75, "Due today"  # due today (or overdue) is P0: it alone reaches the P0 line
     if days == 1:
-        return 32, "Due tomorrow"
+        return 42, "Due tomorrow"
     label = f"Due in {days} days"
     if days <= 3:
         return 24, label
