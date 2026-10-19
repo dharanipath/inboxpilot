@@ -291,9 +291,9 @@ describe("users' own LLM API keys", () => {
     await prisma.user.update({
       where: { id: userId },
       data: {
-        llmProviders: ["anthropic", "heuristic"], // chosen back when Claude was supported
+        llmProviders: ["hf", "heuristic"], // chosen back when Hugging Face was supported
         llmKeysEnc: cipher.encrypt(
-          JSON.stringify({ anthropic: "sk-old-0000000000", groq: GROQ_KEY }),
+          JSON.stringify({ hf: "hf_old_0000000000", groq: GROQ_KEY }),
           `llm-keys:${userId}`,
         ),
       },

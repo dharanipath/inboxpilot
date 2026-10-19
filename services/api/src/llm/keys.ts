@@ -5,27 +5,27 @@ import type { TokenCipher } from "../lib/crypto.js";
 
 /** Providers that take an API key (mirrors KeyedProvider in the contract). */
 export const KEYED_PROVIDERS = [
+  "anthropic",
   "gemini",
   "groq",
   "cerebras",
   "openrouter",
   "mistral",
   "github",
-  "hf",
   "openai",
 ] as const;
 export type KeyedProvider = (typeof KEYED_PROVIDERS)[number];
 export type ProviderKeys = Partial<Record<KeyedProvider, string>>;
 
 export const PROVIDER_LABEL: Record<string, string> = {
+  anthropic: "Anthropic Claude",
   gemini: "Google Gemini",
   groq: "Groq",
   cerebras: "Cerebras",
   openrouter: "OpenRouter",
   mistral: "Mistral",
   github: "OpenAI GPT (GitHub Models)",
-  hf: "Hugging Face",
-  openai: "OpenAI",
+  openai: "OpenAI GPT",
   ollama: "Ollama (local Llama)",
   heuristic: "Rules only (no AI)",
 };

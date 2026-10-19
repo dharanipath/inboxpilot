@@ -186,6 +186,56 @@ export function countBuckets(rows: TaskRow[], today: string): Record<Bucket, num
   return counts;
 }
 
+const isRulesTask = (extractedBy: string) => extractedBy.startsWith("heuristic");
+
+/**
+ * A re-read that fell back to the rules reader must not add tasks beside the ones a real model
+ * already found for the same email (their ids differ, so they would show up twice). Returns the
+ * tasks to write.
+ */
+export async function withoutRulesDuplicates(
+  prisma: PrismaClient,
+  userId: string,
+  tasks: AgentTask[],
+  emailRowIds: Map<string, string>,
+): Promise<AgentTask[]> {
+  const rules = tasks.filter((t) => isRulesTask(t.extracted_by));
+  if (!rules.length) return tasks;
+  const ids = [...new Set(rules.flatMap((t) => emailRowIds.get(t.email_id) ?? []))];
+  const existing = await prisma.task.findMany({
+    where: { userId, emailId: { in: ids }, NOT: { extractedBy: { startsWith: "heuristic" } } },
+    select: { emailId: true },
+  });
+  const covered = new Set(existing.map((r) => r.emailId));
+  return tasks.filter(
+    (t) => !isRulesTask(t.extracted_by) || !covered.has(emailRowIds.get(t.email_id) ?? ""),
+  );
+}
+
+/**
+ * After a real model has read these emails: remove their older rules-reader tasks that the user
+ * has not touched (still open, date not edited) and that the model did not find again.
+ */
+export async function pruneRulesTasks(
+  prisma: PrismaClient,
+  userId: string,
+  emailRowIds: string[],
+  keepIds: string[],
+): Promise<number> {
+  if (!emailRowIds.length) return 0;
+  const res = await prisma.task.deleteMany({
+    where: {
+      userId,
+      emailId: { in: emailRowIds },
+      status: "open",
+      dueOverridden: false,
+      extractedBy: { startsWith: "heuristic" },
+      id: { notIn: keepIds },
+    },
+  });
+  return res.count;
+}
+
 /**
  * Insert or refresh tasks from an agent run. The user's state is NEVER touched:
  * status and snooze are not in the UPDATE set, and a due date the user edited

@@ -12,7 +12,12 @@ import { isValidTimeZone } from "../lib/time.js";
 import { userJson } from "./me.js";
 
 const Tz = z.string().refine(isValidTimeZone, "unknown IANA timezone");
-const StartQuery = z.object({ tz: Tz.optional(), consent: z.literal("1").optional() });
+const StartQuery = z.object({
+  tz: Tz.optional(),
+  consent: z.literal("1").optional(),
+  /** "new": sign in with a different Google account (show the account chooser) */
+  account: z.literal("new").optional(),
+});
 const CallbackQuery = z.object({
   code: z.string().max(2048).optional(),
   state: z.string().max(256).optional(),
@@ -147,14 +152,18 @@ export const authRoutes =
       { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } },
       async (req, reply) => {
         const { oauth } = google();
-        const { tz, consent: forced } = StartQuery.parse(req.query);
+        const { tz, consent: forced, account } = StartQuery.parse(req.query);
+        const another = account === "new";
         const state = randomBytes(32).toString("base64url");
         const { verifier, challenge } = pkcePair();
 
         // a remembered browser: pre-select the account, and skip the permission screen when we
         // already hold that account's Gmail token (Google remembers the grant)
-        const known = (await devices.find(req.cookies[DEVICE_COOKIE]))?.user ?? null;
-        const consent = Boolean(forced) || !known?.refreshTokenEnc;
+        const known = another
+          ? null
+          : ((await devices.find(req.cookies[DEVICE_COOKIE]))?.user ?? null);
+        // a different account has no stored token yet, so it always needs the permission screen
+        const consent = another || Boolean(forced) || !known?.refreshTokenEnc;
 
         await ctx.redis.set(
           oauthKey(state),
@@ -172,6 +181,7 @@ export const authRoutes =
         return reply.redirect(
           oauth.authUrl(state, challenge, {
             consent,
+            ...(another ? { selectAccount: true } : {}),
             ...(known ? { loginHint: known.email } : {}),
           }),
           302,

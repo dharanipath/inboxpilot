@@ -8,13 +8,13 @@ import { isValidTimeZone } from "../lib/time.js";
 import { DEVICE_COOKIE, DEVICE_PATH } from "../auth/devices.js";
 
 export const KNOWN_PROVIDERS = [
+  "anthropic",
   "gemini",
   "groq",
   "cerebras",
   "openrouter",
   "mistral",
   "github",
-  "hf",
   "ollama",
   "openai",
   "heuristic",

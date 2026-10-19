@@ -6,7 +6,7 @@ import type { Redis } from "ioredis";
 
 import { AgentError, type AgentApi } from "../agent/client.js";
 import type { EmailInput, ExtractResponse, ProviderUsage, TraceStep } from "../agent/types.js";
-import { upsertTasks } from "../db/tasks.js";
+import { pruneRulesTasks, upsertTasks, withoutRulesDuplicates } from "../db/tasks.js";
 import { HttpProblem } from "../lib/problem.js";
 import { GmailError } from "../google/gmail.js";
 import { OAuthError } from "../google/oauth.js";
@@ -144,7 +144,23 @@ export class SyncService {
         if (extract && extract.status !== "ok" && extract.detail) {
           await this.d.events.publish(runId, "provider_switch", { detail: extract.detail });
         }
-        written += await upsertTasks(this.d.prisma, user.id, res.tasks, rowIds);
+        // did a real model (not the rules reader) read this chunk?
+        const modelRead = res.provider_usage.some(
+          (u) => u.provider !== "heuristic" && (u.calls > u.failures || (u.cache_hits ?? 0) > 0),
+        );
+        let toWrite = res.tasks;
+        if (modelRead) {
+          const chunkRows = chunk.flatMap((e) => rowIds.get(e.id) ?? []);
+          await pruneRulesTasks(
+            this.d.prisma,
+            user.id,
+            chunkRows,
+            res.tasks.map((t) => t.id),
+          );
+        } else {
+          toWrite = await withoutRulesDuplicates(this.d.prisma, user.id, res.tasks, rowIds);
+        }
+        written += await upsertTasks(this.d.prisma, user.id, toWrite, rowIds);
         skipped += res.skipped.length;
         await this.markProcessed(user.id, chunk, res);
         traces.push(res.trace);

@@ -69,7 +69,7 @@ export class GoogleOAuth {
   authUrl(
     state: string,
     codeChallenge: string,
-    opts: { consent?: boolean; loginHint?: string } = {},
+    opts: { consent?: boolean; loginHint?: string; selectAccount?: boolean } = {},
   ): string {
     const params = new URLSearchParams({
       client_id: this.cfg.clientId,
@@ -82,7 +82,12 @@ export class GoogleOAuth {
       access_type: "offline",
       include_granted_scopes: "false",
     });
-    if (opts.consent ?? true) params.set("prompt", "consent");
+    // selectAccount: always show Google's account chooser ("Use another account")
+    const prompts = [
+      ...(opts.selectAccount ? ["select_account"] : []),
+      ...((opts.consent ?? true) ? ["consent"] : []),
+    ];
+    if (prompts.length) params.set("prompt", prompts.join(" "));
     if (opts.loginHint) params.set("login_hint", opts.loginHint);
     return `${this.authEndpoint}?${params.toString()}`;
   }

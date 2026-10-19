@@ -46,8 +46,7 @@ describe.skipIf(!PYTHON)("gateway ↔ real Python agent", () => {
     // the agent must run with no LLM keys: heuristic only, never a real model
     const env = Object.fromEntries(
       Object.entries(process.env).filter(
-        ([k]) =>
-          !/_API_KEY$|^(GITHUB|HF)_TOKEN$|^OLLAMA_BASE_URL$|^REDIS_URL$|^LLM_PROVIDERS$/.test(k),
+        ([k]) => !/_API_KEY$|^GITHUB_TOKEN$|^OLLAMA_BASE_URL$|^REDIS_URL$|^LLM_PROVIDERS$/.test(k),
       ),
     );
     env.INTERNAL_API_KEY = "test-internal-key";
