@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 type Tab = "upcoming" | "past";
 const TABS: { id: Tab; label: string }[] = [
   { id: "upcoming", label: "Upcoming" },
-  { id: "past", label: "Past 7 days" },
+  { id: "past", label: "Catch-up" },
 ];
 
 export function autoSyncNote(intervalS: number | undefined): string {
@@ -111,7 +111,7 @@ export function DashboardPage() {
               title={
                 t.id === "upcoming"
                   ? "Overdue, today and the next 7 days"
-                  : "Mail from the 7 days before today, with its tasks"
+                  : "Mail from the 7 days before today: what became tasks, what is still open, and what the agent skipped"
               }
               tabIndex={tab === t.id ? 0 : -1}
               onClick={() => setTab(t.id)}
@@ -160,10 +160,11 @@ export function DashboardPage() {
               emptyAction={
                 <Button
                   size="sm"
-                  onClick={() => sync.run()}
+                  // no tasks yet: re-read the last 14 days, not just new mail
+                  onClick={() => sync.run({ reprocess: true })}
                   disabled={progress.phase === "running"}
                 >
-                  {progress.phase === "running" ? "Syncing…" : "Sync now"}
+                  {progress.phase === "running" ? "Syncing…" : "Re-read my mail"}
                 </Button>
               }
             />

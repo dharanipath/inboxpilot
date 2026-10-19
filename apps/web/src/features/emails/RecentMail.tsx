@@ -1,11 +1,11 @@
-import { ExternalLink, FilterX, MailOpen, MailX } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, ExternalLink, FilterX, MailOpen, MailX, Plus } from "lucide-react";
 
-import { useEmails } from "@/api/hooks";
-import type { RecentEmail } from "@/api/types";
+import { useAddTaskFromEmail, useEmails } from "@/api/hooks";
+import type { RecentEmail, Task } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Badge, Skeleton } from "@/components/ui/primitives";
-import { dayLabel, pastStrip, timeLabel } from "@/lib/format";
+import { toast } from "@/components/ui/toast";
+import { dayLabel, pastStrip, sortTasks, timeLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/store/ui";
 
@@ -42,16 +42,29 @@ export function groupByLocalDate(emails: RecentEmail[]): [string, RecentEmail[]]
 
 const DAYS = 7;
 
+/** "4 newsletter, 3 automated notification" for the summary line. */
+function skipBreakdown(skipped: RecentEmail[]): string {
+  const counts = new Map<string, number>();
+  for (const e of skipped) {
+    const label = outcomeLabel(e).toLowerCase();
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([label, n]) => `${n} ${label}`).join(", ");
+}
+
 /**
- * The 7 days before today, by day: every email, what happened to it, and its tasks as the same
- * cards as Upcoming (priority, due date, type, sender, evidence, "why", actions). Today's mail
- * is not here; it is on the Upcoming tab.
+ * Catch-up: the 7 days before today, answering "did the agent miss or wrongly skip anything?"
+ *  1. a one-line summary of what happened to the mail,
+ *  2. the tasks from these days that are still open,
+ *  3. mail that became tasks, by day (finished tasks sit under their mail),
+ *  4. mail the agent skipped, folded by reason, each with "Add as task" to correct it.
+ * Today's mail is not here: its tasks are on the Upcoming tab.
  */
 export function RecentMail({ timezone }: { timezone: string }) {
   const q = useEmails(DAYS);
   const actions = useTaskActions();
+  const addTask = useAddTaskFromEmail();
   const { typeFilter, priorityFilter, resetFilters } = useUi();
-  const [onlyTasks, setOnlyTasks] = useState(false);
 
   if (q.isLoading) {
     return (
@@ -76,26 +89,64 @@ export function RecentMail({ timezone }: { timezone: string }) {
       <EmptyPanel
         icon={<MailOpen />}
         title={`No mail in the past ${DAYS} days`}
-        body="Mail from before today shows up here. Today's mail is on the Upcoming tab."
+        body="Mail from before today shows up here. Tasks from today's mail are on the Upcoming tab."
       />
     );
   }
 
-  const filtered = typeFilter !== "all" || priorityFilter !== "all";
-  const shown = all
-    .map((e) => ({ ...e, tasks: applyFilters(e.tasks, typeFilter, priorityFilter) }))
-    .filter((e) => (onlyTasks || filtered ? e.tasks.length > 0 : true));
-  const tasks = all.flatMap((e) => e.tasks);
   const now = new Date();
-  // same tiles as Upcoming, counted over the tasks these emails produced
+  const filtered = typeFilter !== "all" || priorityFilter !== "all";
+  const tasks = all.flatMap((e) => e.tasks);
   const stillOpen = tasks.filter((t) => !closedState(t, now));
   const done = tasks.filter((t) => t.status === "done").length;
+  const withTasks = all.filter((e) => e.tasks.length > 0);
+  const skipped = all.filter((e) => e.tasks.length === 0);
+  const breakdown = skipBreakdown(skipped);
+
+  const openShown = sortTasks(applyFilters(stillOpen, typeFilter, priorityFilter));
+  // finished tasks stay under their mail; open ones are listed once, in "Still open"
+  const mailShown = withTasks
+    .map((e) => ({
+      email: e,
+      cards: applyFilters(
+        e.tasks.filter((t) => closedState(t, now)),
+        typeFilter,
+        priorityFilter,
+      ),
+    }))
+    .filter((m) =>
+      filtered ? applyFilters(m.email.tasks, typeFilter, priorityFilter).length > 0 : true,
+    );
+
+  const add = (e: RecentEmail) =>
+    addTask.mutate(
+      { emailId: e.id },
+      {
+        onSuccess: () =>
+          toast({
+            title: "Added as a task",
+            description: `${e.subject || "(no subject)"} is in Still open. Set a due date to schedule it.`,
+          }),
+        onError: () =>
+          toast({
+            title: "Couldn't add the task",
+            description: "Please try again.",
+            tone: "error",
+          }),
+      },
+    );
+  const skippedGroups = new Map<string, RecentEmail[]>();
+  for (const e of skipped) {
+    const label = outcomeLabel(e);
+    skippedGroups.set(label, [...(skippedGroups.get(label) ?? []), e]);
+  }
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
-        {all.length} email{all.length === 1 ? "" : "s"} from {dayLabel(q.data.from, today)} to
-        yesterday · {tasks.length} task{tasks.length === 1 ? "" : "s"} found · {done} done
+      <p className="text-sm text-muted-foreground" data-testid="catchup-summary">
+        {dayLabel(q.data.from, today)} to yesterday · {all.length} email
+        {all.length === 1 ? "" : "s"} · {withTasks.length} became tasks · {skipped.length} skipped
+        {breakdown ? ` (${breakdown})` : ""} · {done} done
       </p>
       <KpiTiles open={stillOpen} doneCount={done} hide={["Today"]} />
       <DayStrip
@@ -105,32 +156,37 @@ export function RecentMail({ timezone }: { timezone: string }) {
         highlight={6}
         target={(d) => `mail-${d.date}`}
       />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <FilterBar />
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={onlyTasks}
-            onChange={(e) => setOnlyTasks(e.target.checked)}
-            className="size-3.5 accent-[hsl(var(--primary))]"
-          />
-          Only emails with tasks
-        </label>
-      </div>
-      {!shown.length ? (
+      <FilterBar />
+
+      {openShown.length ? (
+        <section aria-labelledby="catchup-open" className="space-y-3" data-testid="still-open">
+          <h3 id="catchup-open" className="flex items-center gap-2 text-sm font-semibold">
+            Still open from these days
+            <span className="rounded-full bg-secondary px-2 text-xs font-medium text-muted-foreground">
+              {openShown.length}
+            </span>
+          </h3>
+          <ul className="space-y-2">
+            {openShown.map((t: Task) => (
+              <TaskCard key={t.id} task={t} today={today} timezone={timezone} {...actions} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {!mailShown.length && !openShown.length && filtered ? (
         <EmptyPanel
           icon={<FilterX />}
           title="No tasks match these filters"
           body="Try another priority or type."
         >
-          {filtered ? (
-            <Button variant="outline" size="sm" onClick={resetFilters}>
-              Clear filters
-            </Button>
-          ) : null}
+          <Button variant="outline" size="sm" onClick={resetFilters}>
+            Clear filters
+          </Button>
         </EmptyPanel>
       ) : null}
-      {groupByLocalDate(shown).map(([date, emails]) => (
+
+      {groupByLocalDate(mailShown.map((m) => m.email)).map(([date, emails]) => (
         <section key={date} aria-labelledby={`mail-${date}`} className="space-y-3">
           <h3 id={`mail-${date}`} className="flex items-center gap-2 text-sm font-semibold">
             {dayLabel(date, today)}
@@ -140,29 +196,82 @@ export function RecentMail({ timezone }: { timezone: string }) {
           </h3>
           <ul className="space-y-3">
             {emails.map((e) => (
-              <MailItem key={e.id} email={e} today={today} timezone={timezone} actions={actions} />
+              <MailItem
+                key={e.id}
+                email={e}
+                cards={mailShown.find((m) => m.email.id === e.id)?.cards ?? []}
+                today={today}
+                timezone={timezone}
+                actions={actions}
+              />
             ))}
           </ul>
         </section>
       ))}
+
+      {skipped.length && !filtered ? (
+        <details className="group rounded-lg border border-dashed p-3" data-testid="skipped">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
+            <ChevronRight
+              className="size-4 transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            />
+            Skipped by the agent <span className="text-muted-foreground">({skipped.length})</span>
+            <span className="ml-auto text-xs font-normal text-muted-foreground">
+              Something missing? Add it as a task
+            </span>
+          </summary>
+          <div className="mt-3 space-y-4">
+            {[...skippedGroups.entries()].map(([label, emails]) => (
+              <div key={label} className="space-y-2">
+                <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {label} ({emails.length})
+                </h4>
+                <ul className="space-y-2">
+                  {emails.map((e) => (
+                    <MailItem
+                      key={e.id}
+                      email={e}
+                      cards={[]}
+                      today={today}
+                      timezone={timezone}
+                      actions={actions}
+                      onAdd={add}
+                      adding={addTask.isPending}
+                    />
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </div>
   );
 }
 
 function MailItem({
   email,
+  cards,
   today,
   timezone,
   actions,
+  onAdd,
+  adding = false,
 }: {
   email: RecentEmail;
+  /** the task cards to show under the mail (not the open ones: those are in "Still open") */
+  cards: Task[];
   today: string;
   timezone: string;
   actions: TaskActions;
+  onAdd?: (email: RecentEmail) => void;
+  adding?: boolean;
 }) {
   const sender = email.from_name ?? email.from_email ?? "Unknown sender";
   const hasTasks = email.tasks.length > 0;
   const subjectId = `mail-subject-${email.id}`;
+  const subject = email.subject || "(no subject)";
   return (
     <li aria-labelledby={subjectId} data-testid="recent-mail" className="space-y-2">
       <div className="flex items-start gap-3 rounded-lg border bg-card/60 px-3 py-2">
@@ -177,7 +286,7 @@ function MailItem({
         </span>
         <div className="min-w-0 flex-1">
           <p id={subjectId} className="truncate text-sm font-medium">
-            {email.subject || "(no subject)"}
+            {subject}
           </p>
           <p className="truncate text-xs text-muted-foreground">
             {sender}
@@ -188,6 +297,19 @@ function MailItem({
         <Badge className={hasTasks ? "border-primary/30 text-primary" : "text-muted-foreground"}>
           {outcomeLabel(email)}
         </Badge>
+        {onAdd ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={adding}
+            onClick={() => onAdd(email)}
+            aria-label={`Add "${subject}" as a task`}
+            title={`Add "${subject}" as a task`}
+          >
+            <Plus aria-hidden="true" />
+            Add as task
+          </Button>
+        ) : null}
         <a
           href={email.gmail_url}
           target="_blank"
@@ -199,9 +321,9 @@ function MailItem({
           <ExternalLink className="size-3.5" aria-hidden="true" />
         </a>
       </div>
-      {hasTasks ? (
+      {cards.length ? (
         <ul className="space-y-2 pl-4 sm:pl-10" aria-label="Tasks from this email">
-          {email.tasks.map((t) => (
+          {cards.map((t) => (
             <TaskCard key={t.id} task={t} today={today} timezone={timezone} {...actions} />
           ))}
         </ul>

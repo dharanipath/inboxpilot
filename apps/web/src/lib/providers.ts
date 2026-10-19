@@ -4,6 +4,7 @@ import type { ProvidersPage, ProviderStatus } from "@/api/types";
 const DISPLAY_NAME: Record<string, string> = {
   gemini: "Google Gemini",
   groq: "Groq",
+  openrouter: "OpenRouter",
   github: "OpenAI GPT (GitHub Models)",
   ollama: "Ollama (local Llama)",
 };
@@ -16,7 +17,7 @@ export const writtenBy = (id: string): string =>
     : providerName(id);
 
 /** The models offered in the UI, in this order. Others the server may know are not shown. */
-export const SHOWN_MODELS = ["gemini", "groq", "github", "ollama", "heuristic"] as const;
+export const SHOWN_MODELS = ["gemini", "groq", "openrouter", "heuristic"] as const;
 
 export const shownProviders = (list: ProviderStatus[]): ProviderStatus[] =>
   SHOWN_MODELS.flatMap((name) => list.filter((p) => p.name === name));

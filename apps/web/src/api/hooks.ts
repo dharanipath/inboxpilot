@@ -140,6 +140,19 @@ export function useEmails(days = 7) {
   });
 }
 
+/** "Not a task? Add one": turn a skipped email into a task. */
+export function useAddTaskFromEmail() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ emailId, title }: { emailId: string; title?: string }) =>
+      api<Task>(`/api/emails/${encodeURIComponent(emailId)}/task`, {
+        method: "POST",
+        json: title ? { title } : {},
+      }),
+    onSuccess: () => invalidateTaskData(qc),
+  });
+}
+
 /** Everything that depends on task state. */
 export function invalidateTaskData(qc: QueryClient) {
   return Promise.all([

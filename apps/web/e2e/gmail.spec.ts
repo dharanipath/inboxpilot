@@ -108,18 +108,21 @@ test("new mail shows up on its own, without pressing Sync", async ({ page, reque
   await expect(task).toBeVisible({ timeout: 60_000 });
 });
 
-test("past 7 days lists the earlier days' mail (not today's) and what happened to it", async ({
+test("catch-up lists the earlier days' mail (not today's), what is still open, and what was skipped", async ({
   page,
   request,
 }) => {
   await connectGmail(page, request);
-  await page.getByRole("tab", { name: "Past 7 days" }).click();
-  const panel = page.getByRole("tabpanel", { name: "Past 7 days" });
+  await page.getByRole("tab", { name: "Catch-up" }).click();
+  const panel = page.getByRole("tabpanel", { name: "Catch-up" });
   const rows = panel.getByTestId("recent-mail");
   await expect(rows.filter({ hasText: "Contract review" })).toContainText(/1 task/);
-  // the same task card as Upcoming, with its actions
+  // its open task is listed once, under "Still open", as the same card as Upcoming
   await expect(
-    rows.filter({ hasText: "Contract review" }).getByRole("button", { name: /as done$/ }),
+    panel
+      .getByTestId("still-open")
+      .getByRole("button", { name: /as done$/ })
+      .first(),
   ).toBeVisible();
   // the Upcoming tiles, and a calendar of the 7 days before today with mail counts
   await expect(panel.getByTestId("kpi-overdue")).toBeVisible();
@@ -129,6 +132,8 @@ test("past 7 days lists the earlier days' mail (not today's) and what happened t
   await expect(strip.getByRole("button", { name: /: 1 email, 1 task/ }).first()).toBeEnabled();
   // today's mail belongs to Upcoming, not here
   await expect(rows.filter({ hasText: "Board prep" })).toHaveCount(0);
+  // skipped mail is folded away until opened
+  await panel.getByText("Skipped by the agent").click();
   await expect(rows.filter({ hasText: "This week in product" })).toContainText("Newsletter");
   await expect(rows.filter({ hasText: "Urgent instructions" })).toBeVisible();
   await expect(
@@ -142,8 +147,12 @@ test("past 7 days lists the earlier days' mail (not today's) and what happened t
   );
   expect(overflow).toBeLessThanOrEqual(0);
 
-  await panel.getByLabel("Only emails with tasks").check();
-  await expect(rows.filter({ hasText: "This week in product" })).toHaveCount(0);
+  // skipped mail can be turned into a task
+  await rows
+    .filter({ hasText: "This week in product" })
+    .getByRole("button", { name: /^Add .* as a task$/ })
+    .click();
+  await expect(panel.getByTestId("still-open")).toContainText("This week in product");
 });
 
 test("keyboard only: reach a task and mark it done", async ({ page, request }) => {

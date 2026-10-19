@@ -57,6 +57,27 @@ function RunItem({ run }: { run: SyncRun }) {
   const stats = run.stats ?? {};
   const seconds =
     typeof stats.duration_ms === "number" ? `${(stats.duration_ms / 1000).toFixed(1)} s` : "–";
+  // a clean check that found no new mail has nothing to expand: show it as one line
+  const noNewMail =
+    run.status === "succeeded" &&
+    !run.error &&
+    !run.trace.length &&
+    num(stats.fetched) === 0 &&
+    num(stats.processed) === 0;
+  if (noNewMail) {
+    return (
+      <li
+        data-testid="run-no-new-mail"
+        className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-dashed px-4 py-2"
+      >
+        <Badge className={STATUS_TONE[run.status]}>{run.status}</Badge>
+        <span className="text-sm font-medium">{relativeTime(run.started_at)}</span>
+        <span className="text-xs text-muted-foreground">
+          Checked your inbox: no new mail · {seconds}
+        </span>
+      </li>
+    );
+  }
   return (
     <li>
       <details className="group rounded-lg border bg-card shadow-sm">

@@ -52,6 +52,7 @@ export function TaskBoard({ tasks, today, timezone, actions, emptyAction }: Prop
   );
   const week = byBucket(visible, "week");
   const review = byBucket(visible, "needs_review");
+  const undated = byBucket(visible, "undated");
 
   return (
     <div className="space-y-6">
@@ -107,13 +108,22 @@ export function TaskBoard({ tasks, today, timezone, actions, emptyAction }: Prop
         render={card}
         hideWhenEmpty
       />
-      <Section
-        id="undated"
-        title="No due date"
-        tasks={sortTasks(byBucket(visible, "undated"))}
-        render={card}
-        hideWhenEmpty
-      />
+      {undated.length ? (
+        // collapsed: tasks with no date don't belong in the week view, but stay one click away
+        <details className="group rounded-lg border border-dashed p-3" data-testid="undated">
+          <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">
+            <ChevronRight
+              className="size-4 transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            />
+            No due date <span className="text-muted-foreground">({undated.length})</span>
+            <span className="ml-auto text-xs font-normal text-muted-foreground">
+              Not in your week: set a date to schedule it
+            </span>
+          </summary>
+          <ul className="mt-3 space-y-2">{sortTasks(undated).map(card)}</ul>
+        </details>
+      ) : null}
       {review.length ? (
         <details className="group rounded-lg border border-dashed p-3">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium">

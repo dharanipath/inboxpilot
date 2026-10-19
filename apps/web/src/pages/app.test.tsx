@@ -453,7 +453,7 @@ describe("Gmail connection expired", () => {
 });
 
 describe("past 7 days", () => {
-  it("shows the days before today with the same task cards and filters as Upcoming", async () => {
+  it("catch-up: summary, still-open tasks, mail by day, and skipped mail you can add as a task", async () => {
     const withTask = makeEmail({
       subject: "Deck for Friday",
       local_date: "2026-10-15", // yesterday
@@ -473,8 +473,13 @@ describe("past 7 days", () => {
       received_at: "2026-10-13T03:00:00Z",
     });
     const patches: unknown[] = [];
+    const added: string[] = [];
     server.use(
       http.get("/api/emails", () => HttpResponse.json(emailPage([withTask, alert]))),
+      http.post("/api/emails/:id/task", ({ params }) => {
+        added.push(String(params.id));
+        return HttpResponse.json(makeTask({ title: "Security alert" }), { status: 201 });
+      }),
       http.patch("/api/tasks/:id", async ({ request, params }) => {
         patches.push({ id: params.id, ...((await request.json()) as object) });
         return HttpResponse.json({ ...withTask.tasks[1], status: "open" });
@@ -483,17 +488,17 @@ describe("past 7 days", () => {
     const u = userEvent.setup();
     renderApp("/app");
 
-    const pastTab = await screen.findByRole("tab", { name: "Past 7 days" });
+    const pastTab = await screen.findByRole("tab", { name: "Catch-up" });
     expect(pastTab).toHaveAttribute("aria-selected", "false");
     await u.click(pastTab);
     expect(pastTab).toHaveAttribute("aria-selected", "true");
-    const panel = screen.getByRole("tabpanel", { name: "Past 7 days" });
+    const panel = screen.getByRole("tabpanel", { name: "Catch-up" });
 
     const rows = await within(panel).findAllByTestId("recent-mail");
     expect(rows).toHaveLength(2);
-    expect(
-      within(panel).getByText(/^2 emails from .+ to yesterday · 2 tasks found · 1 done$/),
-    ).toBeInTheDocument();
+    expect(within(panel).getByTestId("catchup-summary")).toHaveTextContent(
+      /2 emails · 1 became tasks · 1 skipped \(1 automated notification\) · 1 done/,
+    );
     expect(within(panel).getByRole("heading", { name: /Yesterday/ })).toBeInTheDocument();
     expect(within(panel).queryByRole("heading", { name: /^Today/ })).not.toBeInTheDocument();
 
@@ -514,8 +519,10 @@ describe("past 7 days", () => {
     expect(within(strip).getByRole("button", { name: /^Mon 12: 0 emails/ })).toBeDisabled();
     expect(within(strip).queryByText("16")).not.toBeInTheDocument(); // today is not in the past
 
-    // the same card as Upcoming: priority as text, type, sender, evidence, actions, "why"
-    const deck = within(rows[0]!).getByRole("listitem", { name: "Send the deck" });
+    // the open task is listed once, under "Still open", as the same card as Upcoming
+    const stillOpen = within(panel).getByTestId("still-open");
+    const deck = within(stillOpen).getByRole("listitem", { name: "Send the deck" });
+    expect(within(rows[0]!).queryByRole("listitem", { name: "Send the deck" })).toBeNull();
     expect(within(deck).getByText(/P1/)).toBeInTheDocument();
     expect(within(deck).getByText("Please send the deck.")).toBeInTheDocument();
     expect(within(deck).getByText(/From Priya/)).toBeInTheDocument();
@@ -536,14 +543,21 @@ describe("past 7 days", () => {
       within(rows[1]!).getByRole("link", { name: 'Open "Security alert" in Gmail' }),
     ).toHaveAttribute("href", alert.gmail_url);
 
-    // the Upcoming filters work here too
+    // skipped mail is folded away, and can be turned into a task
+    const skippedGroup = within(panel).getByTestId("skipped");
+    expect(skippedGroup).not.toHaveAttribute("open");
+    expect(skippedGroup).toHaveTextContent("Skipped by the agent (1)");
+    await u.click(
+      within(skippedGroup).getByRole("button", { name: 'Add "Security alert" as a task' }),
+    );
+    await waitFor(() => expect(added).toEqual([alert.id]));
+
+    // the Upcoming filters work here too (and hide the skipped group)
     await u.click(within(panel).getByRole("button", { name: /^P1/ }));
     expect(within(panel).getAllByTestId("recent-mail")).toHaveLength(1);
     expect(within(panel).queryByRole("listitem", { name: "Book room" })).not.toBeInTheDocument();
+    expect(within(panel).queryByTestId("skipped")).not.toBeInTheDocument();
     await u.click(within(panel).getByRole("button", { name: "All" }));
-
-    await u.click(within(panel).getByLabelText("Only emails with tasks"));
-    expect(within(panel).getAllByTestId("recent-mail")).toHaveLength(1);
 
     // arrow keys move between tabs
     await u.click(pastTab);
@@ -554,7 +568,7 @@ describe("past 7 days", () => {
   it("says so when there is no recent mail", async () => {
     const u = userEvent.setup();
     renderApp("/app");
-    await u.click(await screen.findByRole("tab", { name: "Past 7 days" }));
+    await u.click(await screen.findByRole("tab", { name: "Catch-up" }));
     expect(await screen.findByText("No mail in the past 7 days")).toBeInTheDocument();
   });
 
@@ -723,7 +737,7 @@ describe("hover text", () => {
       "title",
       'Mark "Send the deck" as done',
     );
-    expect(screen.getByRole("tab", { name: "Past 7 days" })).toHaveAttribute(
+    expect(screen.getByRole("tab", { name: "Catch-up" })).toHaveAttribute(
       "title",
       expect.stringMatching(/7 days before today/),
     );

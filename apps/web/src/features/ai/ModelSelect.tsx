@@ -69,7 +69,7 @@ export function ModelSelect({
       title={
         only
           ? "Switch to another AI model that is ready now"
-          : "AI model that reads your mail: Gemini, Groq, OpenAI GPT, Ollama, or Rules only (no AI)"
+          : "AI model that reads your mail: Gemini, Groq, OpenRouter, or Rules only (no AI)"
       }
       className={cn(
         "h-8 max-w-full rounded-md border bg-card px-2 text-xs text-foreground disabled:opacity-60",

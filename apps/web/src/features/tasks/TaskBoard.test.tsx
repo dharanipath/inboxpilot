@@ -75,7 +75,10 @@ describe("TaskBoard", () => {
     const week = screen.getByRole("region", { name: /Next 7 days/ });
     expect(within(week).getByRole("heading", { level: 4, name: "Sun 18 Oct" })).toBeInTheDocument();
     expect(within(week).getByRole("heading", { level: 4, name: "Tue 20 Oct" })).toBeInTheDocument();
-    expect(titles(screen.getByRole("region", { name: /No due date/ }))).toEqual(["Read notes"]);
+    const undated = screen.getByTestId("undated"); // collapsed: not part of the week view
+    expect(undated).not.toHaveAttribute("open");
+    expect(undated).toHaveTextContent("No due date (1)");
+    expect(titles(undated)).toEqual(["Read notes"]);
     const review = screen.getByText(/Needs review/).closest("details");
     expect(review).not.toHaveAttribute("open"); // low-confidence tasks stay out of the way
     expect(screen.queryByRole("region", { name: /Later/ })).not.toBeInTheDocument();

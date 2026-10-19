@@ -196,7 +196,10 @@ function WelcomeBack({ account, googleUrl }: { account: RememberedAccount; googl
         </p>
       ) : null}
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        <a href={googleUrl} className="font-medium text-primary underline-offset-2 hover:underline">
+        <a
+          href={`${googleUrl}&account=new`}
+          className="font-medium text-primary underline-offset-2 hover:underline"
+        >
           Use another Google account
         </a>
         <button

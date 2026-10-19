@@ -149,14 +149,15 @@ describe("daily briefing: written by the selected model", () => {
     expect(writtenBy("ollama")).toBe("Ollama (local Llama)");
     expect(writtenBy("gemini")).toBe("Google Gemini");
     expect(writtenBy("groq")).toBe("Groq");
+    expect(writtenBy("openrouter")).toBe("OpenRouter");
     expect(writtenBy("template")).toBe("rules (no LLM)");
     expect(writtenBy("gateway-template")).toBe("rules (no LLM)");
     expect(writtenBy("cerebras")).toBe("cerebras");
   });
 
   it("switching the model rewrites the briefing, and it keeps saying who wrote it", async () => {
-    const gpt = providerStatus({ name: "github", label: "OpenAI GPT (GitHub Models)", ...ready });
-    backend(providersPage([gemini(ready), groq(), gpt, rules], "gemini"));
+    const router = providerStatus({ name: "openrouter", label: "OpenRouter", ...ready });
+    backend(providersPage([gemini(ready), groq(), router, rules], "gemini"));
     let writer = "gemini";
     let fetched = 0;
     server.use(
@@ -169,7 +170,7 @@ describe("daily briefing: written by the selected model", () => {
         const { model } = (await request.json()) as { model: string };
         writer = model === "heuristic" ? "template" : model; // rules write a template briefing
         return HttpResponse.json({
-          ...providersPage([gemini(ready), groq(), gpt, rules], model),
+          ...providersPage([gemini(ready), groq(), router, rules], model),
           resync: null,
         });
       }),
@@ -178,9 +179,9 @@ describe("daily briefing: written by the selected model", () => {
     renderApp("/app");
     expect(await screen.findByText("Written by Google Gemini")).toBeInTheDocument();
 
-    await u.selectOptions(await screen.findByLabelText("AI model"), "github");
+    await u.selectOptions(await screen.findByLabelText("AI model"), "openrouter");
     // no reload: the card refetches and now credits the model that was picked
-    expect(await screen.findByText("Written by OpenAI GPT (GitHub Models)")).toBeInTheDocument();
+    expect(await screen.findByText("Written by OpenRouter")).toBeInTheDocument();
     expect(screen.queryByText("Written by Google Gemini")).not.toBeInTheDocument();
     expect(fetched).toBeGreaterThanOrEqual(2);
 
@@ -213,7 +214,8 @@ describe("no AI key yet", () => {
 });
 
 describe("picking a model", () => {
-  it("offers only the free models (Gemini, Groq, GPT, Ollama) and Rules only", async () => {
+  it("offers only Gemini, Groq, OpenRouter and Rules only", async () => {
+    const router = providerStatus({ name: "openrouter", label: "OpenRouter", ...ready });
     const gpt = providerStatus({ name: "github", label: "OpenAI GPT (GitHub Models)", ...ready });
     const ollama = providerStatus({
       name: "ollama",
@@ -221,7 +223,9 @@ describe("picking a model", () => {
       keyable: false,
     });
     const cerebras = providerStatus({ name: "cerebras", label: "Cerebras", ...ready });
-    const calls = backend(providersPage([cerebras, gemini(), groq(ready), gpt, ollama, rules]));
+    const calls = backend(
+      providersPage([cerebras, gemini(), groq(ready), router, gpt, ollama, rules]),
+    );
     const u = userEvent.setup();
     renderApp("/app");
     const picker = await screen.findByLabelText("AI model");
@@ -235,8 +239,7 @@ describe("picking a model", () => {
       "Choose a model",
       "Google Gemini — add a free key",
       "Groq — ready · your key",
-      "OpenAI GPT (GitHub Models) — ready · your key",
-      "Ollama (local Llama) — not set up",
+      "OpenRouter — ready · your key",
       "Rules only (no AI)",
     ]);
     expect(picker).toHaveAttribute("title", expect.stringMatching(/AI model that reads your mail/));
