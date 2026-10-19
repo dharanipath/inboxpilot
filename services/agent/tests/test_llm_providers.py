@@ -298,7 +298,7 @@ def test_known_provider_messages_become_codes(status: int, message: str, code: s
 
 @respx.mock
 def test_any_402_is_out_of_credit_even_without_a_json_body() -> None:
-    """Hugging Face and OpenRouter answer 402 Payment Required when free credits run out."""
+    """OpenRouter answers 402 Payment Required when free credits run out."""
     respx.post(GROQ_URL).mock(return_value=httpx.Response(402, text="Payment Required"))
     with pytest.raises(OutOfCredit) as err:
         run(groq().complete_json("s", "u", {}))

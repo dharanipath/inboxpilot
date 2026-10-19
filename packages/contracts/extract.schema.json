@@ -826,13 +826,13 @@
     },
     "KeyedProvider": {
       "enum": [
+        "anthropic",
         "gemini",
         "groq",
         "cerebras",
         "openrouter",
         "mistral",
         "github",
-        "hf",
         "openai"
       ],
       "description": "Providers that take an API key; a user may bring their own (ADR 0006)."

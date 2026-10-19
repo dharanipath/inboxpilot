@@ -20,8 +20,8 @@ INTERNAL_API_KEY=dev-key .venv/Scripts/python -m uvicorn app.main:create_app --f
 | Variable | Default | Meaning |
 |---|---|---|
 | `INTERNAL_API_KEY` | *(required)* | Shared secret the gateway sends in `X-Internal-Key`. If it is unset, protected routes return 503. |
-| `LLM_PROVIDERS` | `gemini,groq,github,cerebras,openrouter,mistral,hf,ollama,heuristic` | Failover order. Providers without a key are skipped, and `heuristic` is always appended last. |
-| `<PROVIDER>_API_KEY` / `GITHUB_TOKEN` / `HF_TOKEN` / `OLLAMA_BASE_URL` | unset | See the repo-root `.env.example` |
+| `LLM_PROVIDERS` | `gemini,groq,openrouter,github,cerebras,mistral,ollama,heuristic` | Failover order. Providers without a key are skipped, and `heuristic` is always appended last. |
+| `<PROVIDER>_API_KEY` / `GITHUB_TOKEN` / `OLLAMA_BASE_URL` | unset | See the repo-root `.env.example` |
 | `<PROVIDER>_MODEL` | see `app/llm/registry.py` | Model override |
 | `REDIS_URL` | unset (in-memory) | LLM cache (24 h) and circuit state shared by all workers |
 | `EXTRACT_BATCH_SIZE` / `EXTRACT_CONCURRENCY` | `6` / `3` | Emails per LLM call, and parallel calls per sync |
@@ -46,7 +46,7 @@ All of these are defined in `packages/contracts/extract.schema.json`.
 
 ## LLM router (ADR 0003)
 
-Adapters: `OpenAICompatibleProvider` (Groq, Cerebras, OpenRouter, Mistral, GitHub Models, HF, OpenAI), `GeminiProvider`, `OllamaProvider` and `HeuristicProvider`.
+Adapters: `OpenAICompatibleProvider` (Groq, Cerebras, OpenRouter, Mistral, GitHub Models, OpenAI), `GeminiProvider`, `OllamaProvider` and `HeuristicProvider`.
 
 | Event | What the router does |
 |---|---|

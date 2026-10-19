@@ -99,11 +99,10 @@ def test_default_order_has_heuristic_last() -> None:
     assert provider_order({}) == [
         "gemini",
         "groq",
+        "openrouter",
         "github",
         "cerebras",
-        "openrouter",
         "mistral",
-        "hf",
         "ollama",
         "heuristic",
     ]
@@ -138,20 +137,21 @@ def test_keys_models_and_base_urls_come_from_env() -> None:
         "groq",
         "openrouter",
         "ollama",
+        "anthropic",
         "openai",
         "heuristic",
-    ]  # unknown names skipped: "bogus", and "anthropic" (support was removed)
+    ]  # unknown names are skipped: "bogus"
     gemini = by_name["gemini"]
     assert isinstance(gemini, GeminiProvider) and gemini.model == "gemini-2.0-flash"
     groq = by_name["groq"]
-    assert isinstance(groq, OpenAICompatibleProvider) and groq.model == "llama-3.3-70b-versatile"
+    assert isinstance(groq, OpenAICompatibleProvider) and groq.model == "openai/gpt-oss-120b"
     openrouter = by_name["openrouter"]
     assert isinstance(openrouter, OpenAICompatibleProvider) and not openrouter.json_mode
     ollama = by_name["ollama"]
     assert isinstance(ollama, OllamaProvider) and ollama.model == "qwen2.5:7b"
     openai = by_name["openai"]
     assert isinstance(openai, OpenAICompatibleProvider) and openai.base_url == "http://proxy/v1"
-    assert "anthropic" not in by_name
+    assert "anthropic" in by_name
 
 
 # ---------------------------------------------------------------- .env loader

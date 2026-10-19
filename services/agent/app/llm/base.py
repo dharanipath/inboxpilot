@@ -108,6 +108,8 @@ def parse_retry_after(value: str | None) -> float | None:
 _KNOWN_MESSAGES = (
     ("no longer available to new users", "MODEL_RETIRED"),  # Gemini: model closed to new keys
     ("insufficient_quota", "NO_CREDIT"),
+    ("credit balance is too low", "NO_CREDIT"),  # Anthropic answers 400 when credit runs out
+    ("no credits remaining", "NO_CREDIT"),  # OpenAI answers 429 when credit runs out
 )
 
 
@@ -171,11 +173,14 @@ async def post_json(
         raise ProviderError(f"{provider}: {type(exc).__name__}") from exc
 
     if resp.status_code == 429:
+        # a spent balance is not a rate limit: retrying later will not help
+        if error_reason(resp) == "NO_CREDIT":
+            raise OutOfCredit(f"{provider}: HTTP 429 NO_CREDIT")
         raise RateLimited(f"{provider}: rate limited (429)", _retry_after(resp))
     if resp.status_code >= 400:
         reason = error_reason(resp)
         suffix = f" {reason}" if reason else ""
-        # 402 Payment Required: free credits used up (Hugging Face, OpenRouter) or none left
+        # 402 Payment Required: free credits used up (OpenRouter) or none left
         if resp.status_code == 402 or reason == "NO_CREDIT":
             raise OutOfCredit(f"{provider}: HTTP {resp.status_code} NO_CREDIT")
         if resp.status_code in (401, 403) or reason in _AUTH_REASONS:

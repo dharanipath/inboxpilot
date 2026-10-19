@@ -207,7 +207,7 @@ def test_gemini_429_fails_over_to_groq_end_to_end(
     assert gemini.call_count == 1  # circuit opened: the briefing call skipped gemini
     assert groq.call_count == 2
     (task,) = body["tasks"]
-    assert task["extracted_by"] == "groq/llama-3.3-70b-versatile"
+    assert task["extracted_by"] == "groq/openai/gpt-oss-120b"
     assert task["date_source"] == "resolver" and task["due_date"] == "2026-10-20"
     extract = next(s for s in body["trace"] if s["step"] == "extract")
     assert extract["status"] == "degraded"

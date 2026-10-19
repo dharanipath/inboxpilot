@@ -138,7 +138,7 @@ async def test_probe_reports_what_happened_to_the_key(
     result = await router.probe("groq", ALICE)
     assert result.outcome == outcome
     assert result.retry_after_s == retry
-    assert result.model == "llama-3.3-70b-versatile"
+    assert result.model == "openai/gpt-oss-120b"
     assert ALICE not in (result.message or "")
     cooled = await router.store.ttl(f"cb:groq:{key_fingerprint(ALICE)}")
     assert (cooled is not None) == (outcome in ("rate_limited", "auth"))
@@ -179,7 +179,7 @@ def test_extract_with_a_users_key_end_to_end(
     assert ALICE not in r.text
     assert list(_validator("ExtractResponse").iter_errors(body)) == []
     (task,) = body["tasks"]
-    assert task["extracted_by"] == "groq/llama-3.3-70b-versatile"
+    assert task["extracted_by"] == "groq/openai/gpt-oss-120b"
     assert all(_bearer(call.request) == ALICE for call in groq.calls)
     # the server itself still has no key for groq
     assert server_view["groq"]["configured"] is False
@@ -199,7 +199,7 @@ def test_provider_endpoints_scope_status_to_the_user_and_test_keys(no_server_key
     assert probe.status_code == 200
     assert probe.json() == {
         "name": "groq",
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "outcome": "rate_limited",
         "retry_after_s": 30,
         "message": "groq: rate limited (429)",

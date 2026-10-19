@@ -85,11 +85,25 @@ class RouterResult(Generic[T]):
     def chain(self) -> str:
         """e.g. 'gemini rate-limited → groq'."""
         steps = [
-            f"{a.provider} {_LABELS[a.outcome]}"
+            f"{a.provider} "
+            + (_paused_label(a.error) if a.outcome == "cooling_down" else _LABELS[a.outcome])
             for a in self.attempts
             if a.outcome not in ("ok", "cached")
         ]
         return " → ".join([*steps, self.provider + (" (cached)" if self.cached else "")])
+
+
+# why a model is paused (the circuit's stored reason), in words for the run trace
+_PAUSED = {
+    "rate_limited": "paused (free limit reached)",
+    "auth": "paused (key rejected)",
+    "no_credit": "paused (out of credit)",
+    "failures": "paused (not responding)",
+}
+
+
+def _paused_label(reason: str | None) -> str:
+    return _PAUSED.get(reason or "", "paused")
 
 
 @dataclass
@@ -253,29 +267,35 @@ class LLMRouter:
         validate: Callable[[dict[str, Any]], T],
         order: Sequence[str] | None = None,
         exclude: Collection[str] = (),
+        cache_if: Callable[[T], bool] | None = None,
     ) -> RouterResult[T]:
         ctx = _Ctx()
         for p in self.ordered(order, exclude):
             stats = self.stats.setdefault(p.name, ProviderStats())
-            if not _always_on(p) and await self.store.get(_cb_key(p)) is not None:
-                ctx.attempts.append(Attempt(p.name, p.model, "cooling_down"))
+            paused = None if _always_on(p) else await self.store.get(_cb_key(p))
+            if paused is not None:
+                ctx.attempts.append(Attempt(p.name, p.model, "cooling_down", error=str(paused)))
                 continue
 
             cache_key = None if _always_on(p) else _cache_key(p, system, user)
             if cache_key and (hit := await self.store.get(cache_key)) is not None:
                 try:
-                    value = validate(json.loads(hit))
+                    cached_value = validate(json.loads(hit))
                 except (ValueError, TypeError):
                     await self.store.delete(cache_key)
                 else:
-                    stats.cache_hits += 1
-                    ctx.attempts.append(Attempt(p.name, p.model, "cached"))
-                    return RouterResult(value, p.name, p.model, ctx.attempts, cached=True)
+                    if cache_if is None or cache_if(cached_value):
+                        stats.cache_hits += 1
+                        ctx.attempts.append(Attempt(p.name, p.model, "cached"))
+                        return RouterResult(
+                            cached_value, p.name, p.model, ctx.attempts, cached=True
+                        )
+                    await self.store.delete(cache_key)  # stale empty answer: ask again
 
             result = await self._try(p, stats, ctx, system, user, schema, validate)
             if result is not None:
                 raw, value = result
-                if cache_key:
+                if cache_key and (cache_if is None or cache_if(value)):
                     await self.store.set(cache_key, json.dumps(raw), self.cache_ttl_s)
                 return RouterResult(value, p.name, p.model, ctx.attempts)
 
@@ -405,13 +425,23 @@ def _key_id(p: LLMProvider) -> str:
     return str(getattr(p, "key_id", "server"))
 
 
-def _cb_key(p: LLMProvider) -> str:
+def _breaker_id(p: LLMProvider) -> str:
+    """Which key a circuit belongs to. A server key is identified by a fingerprint too, so that
+    replacing a rejected key in .env is tried at once instead of waiting out the old cooldown."""
     kid = _key_id(p)
+    if kid != "server":
+        return kid
+    key = getattr(p, "api_key", None)
+    return f"server-{key_fingerprint(key)[:8]}" if isinstance(key, str) and key else "server"
+
+
+def _cb_key(p: LLMProvider) -> str:
+    kid = _breaker_id(p)
     return f"cb:{p.name}" if kid == "server" else f"cb:{p.name}:{kid}"
 
 
 def _fail_key(p: LLMProvider) -> str:
-    kid = _key_id(p)
+    kid = _breaker_id(p)
     return f"cbfail:{p.name}" if kid == "server" else f"cbfail:{p.name}:{kid}"
 
 

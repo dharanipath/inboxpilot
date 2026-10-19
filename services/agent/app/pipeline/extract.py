@@ -76,6 +76,7 @@ async def extract(
                     schema=EXTRACTION_SCHEMA,
                     validate=_validate,
                     order=order,
+                    cache_if=bool,  # an empty answer is not cached: it would hide tasks for 24 h
                 )
         except AllProvidersFailed as exc:
             return exc

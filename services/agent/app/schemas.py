@@ -23,7 +23,7 @@ StepName = Literal["preprocess", "triage", "extract", "ground", "dates", "priori
 StepStatus = Literal["ok", "degraded", "skipped", "failed"]
 # providers that take an API key (a user may bring their own: ADR 0006)
 KeyedProvider = Literal[
-    "gemini", "groq", "cerebras", "openrouter", "mistral", "github", "hf", "openai"
+    "anthropic", "gemini", "groq", "cerebras", "openrouter", "mistral", "github", "openai"
 ]
 ApiKey = Annotated[SecretStr, Field(min_length=8, max_length=512)]
 ProbeOutcome = Literal["ok", "rate_limited", "auth", "timeout", "error", "invalid"]

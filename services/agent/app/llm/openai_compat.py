@@ -1,5 +1,5 @@
 """One adapter for every OpenAI-compatible API: Groq, Cerebras, OpenRouter, Mistral,
-GitHub Models, Hugging Face router and OpenAI itself. Adding one is a config change."""
+GitHub Models and OpenAI itself. Adding one is a config change."""
 
 from __future__ import annotations
 
