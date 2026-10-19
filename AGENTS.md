@@ -13,7 +13,7 @@ You are working on **InboxPilot**. It is an AI agent that reads a user's Gmail (
 | `services/agent` | Python 3.12, FastAPI, Pydantic v2, httpx | Pipeline: Preprocess (+PII redaction) → Triage → Extract (LLM, batched) → Ground → Temporal → Priority → Dedupe + Planner. Endpoints: `GET /v1/health`, `GET /v1/providers`, `POST /v1/extract`, `POST /v1/ask`, `POST /v1/briefing` |
 | `packages/contracts` | JSON Schema 2020-12 + fixtures | Single source of truth for the API ↔ agent contract |
 
-- **LLM layer** (ADR 0003): one `LLMProvider` protocol. The adapters are OpenAICompatible (Groq, Cerebras, OpenRouter, Mistral, GitHub Models, HF, OpenAI), Gemini and Ollama, plus Heuristic, which is always last. `LLMRouter` follows `LLM_PROVIDERS` order:
+- **LLM layer** (ADR 0003): one `LLMProvider` protocol. The adapters are OpenAICompatible (Groq, Cerebras, OpenRouter, Mistral, GitHub Models, OpenAI), Gemini and Ollama, plus Heuristic, which is always last. `LLMRouter` follows `LLM_PROVIDERS` order:
   - on a 429, it opens the circuit for `Retry-After` (default 60 s)
   - after 3 consecutive 5xx errors or timeouts, it opens the circuit for 30 s
   - on invalid JSON, it makes 1 repair retry, then fails over

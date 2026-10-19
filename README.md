@@ -219,7 +219,7 @@ flowchart LR
   N --> G[Gateway<br/>Node · Fastify]
   G -- "OAuth, gmail.readonly" --> GG[(Google APIs)]
   G -- "POST /v1/extract<br/>X-Internal-Key" --> A[Agent<br/>Python · FastAPI]
-  A -- "failover chain" --> L[(Gemini → Groq → GPT via GitHub →<br/>Cerebras → OpenRouter → Mistral →<br/>HF → Ollama → rules)]
+  A -- "failover chain" --> L[(Gemini → Groq → GPT via GitHub →<br/>Cerebras → OpenRouter → Mistral →<br/>Ollama → rules)]
   G --> P[(Postgres<br/>users · tasks · runs · audit)]
   G --> R[(Redis<br/>queue · sessions · bodies 1 h · SSE)]
   A --> R
@@ -281,8 +281,8 @@ All settings live in `.env` (template: [.env.example](.env.example)).
 | `TOKEN_ENC_KEY` | **required** | – | 32 random bytes, base64: encrypts the stored Google sign-in |
 | `GEMINI_API_KEY`, `GROQ_API_KEY`, `GITHUB_TOKEN` | optional | – | free AI models (step 4) |
 | `OLLAMA_BASE_URL` | optional | – | local Llama, `http://ollama:11434` |
-| `CEREBRAS_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `HF_TOKEN`, `OPENAI_API_KEY` | optional | – | more providers the agent supports |
-| `LLM_PROVIDERS` | optional | `gemini,groq,github,cerebras,openrouter,mistral,hf,ollama,heuristic` | the order models are tried when you pick none; rules are always last |
+| `CEREBRAS_API_KEY`, `OPENROUTER_API_KEY`, `MISTRAL_API_KEY`, `OPENAI_API_KEY` | optional | – | more providers the agent supports |
+| `LLM_PROVIDERS` | optional | `gemini,groq,openrouter,github,cerebras,mistral,ollama,heuristic` | the order models are tried when you pick none; rules are always last |
 | `<PROVIDER>_MODEL` | optional | per provider | change a model name, e.g. `GEMINI_MODEL` |
 | `AUTO_SYNC_INTERVAL_S` | optional | `120` | background mail check, in seconds; `0` turns it off |
 | `INTERNAL_API_KEY`, `JWT_SECRET` | local defaults are fine | change-me values | gateway↔agent secret, and cookie signing |

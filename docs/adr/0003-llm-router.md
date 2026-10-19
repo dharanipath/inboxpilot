@@ -19,14 +19,14 @@ The project must run on free LLM tiers. Free quotas are small, change often, and
 
 One `LLMProvider` protocol (`name`, `model`, `is_configured()`, `async complete_json(system, user, schema, timeout_s)`) with four adapters:
 
-- `OpenAICompatibleProvider`. This is configured by base URL, key and model, and covers Groq, Cerebras, OpenRouter, Mistral, GitHub Models, HF and OpenAI.
+- `OpenAICompatibleProvider`. This is configured by base URL, key and model, and covers Groq, Cerebras, OpenRouter, Mistral, GitHub Models and OpenAI.
 - `GeminiProvider` (native JSON mode)
 - `OllamaProvider` (local, keeps data on the machine)
 - `HeuristicProvider` (rules, always configured, always last)
 
 Every LLM call made for a user (extraction, briefing, Ask) passes that user's selected order (`options.providers`), so a selected model is never bypassed; a selection of only `heuristic` means no LLM call. A model that is out of credit (HTTP 402) raises `OutOfCredit`, which opens the circuit for 10 minutes with reason `no_credit`.
 
-`LLMRouter` reads `LLM_PROVIDERS` (default `gemini,groq,github,cerebras,openrouter,mistral,hf,ollama,heuristic`) and skips any provider without a key. For each batch it calls the first provider whose circuit is closed:
+`LLMRouter` reads `LLM_PROVIDERS` (default `gemini,groq,openrouter,github,cerebras,mistral,ollama,heuristic`) and skips any provider without a key. For each batch it calls the first provider whose circuit is closed:
 
 | Event | Behaviour |
 |---|---|
