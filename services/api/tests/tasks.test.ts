@@ -339,3 +339,32 @@ describe("priority is re-scored for today (SPEC Q11)", () => {
     expect(p2.body.items.length).toBeGreaterThan(10);
   });
 });
+
+describe("tasks from emails with attachments", () => {
+  it("marks each task with whether its email has a file attachment", async () => {
+    const { cookie } = await login(t, TZ);
+    await syncAndWait(t, cookie); // the synthetic inbox marks msg-01 as having an attachment
+    const items = (await t.http.get("/api/tasks?limit=200").set("cookie", cookie).expect(200)).body
+      .items as { email_id: string; has_attachment: boolean }[];
+    expect(items.some((x) => x.has_attachment)).toBe(true);
+    expect(items.some((x) => !x.has_attachment)).toBe(true);
+    expect(items.filter((x) => x.has_attachment).every((x) => x.email_id === "msg-01")).toBe(true);
+  });
+});
+
+describe("emails with attachments", () => {
+  it("/api/emails?attachments=1 lists the emails that have a file, with or without tasks", async () => {
+    const { cookie } = await login(t, TZ);
+    await syncAndWait(t, cookie); // the synthetic inbox marks msg-01 as having an attachment
+    const res = await t.http
+      .get("/api/emails?attachments=1&days=14")
+      .set("cookie", cookie)
+      .expect(200);
+    const items = res.body.items as { id: string }[];
+    expect(items.map((e) => e.id)).toEqual(["msg-01"]);
+    // the default view is unchanged: it does not apply the attachment filter
+    const plain = await t.http.get("/api/emails?days=14").set("cookie", cookie).expect(200);
+    expect((plain.body.items as unknown[]).length).toBeGreaterThan(1);
+    await t.http.get("/api/emails?attachments=maybe").set("cookie", cookie).expect(400);
+  });
+});

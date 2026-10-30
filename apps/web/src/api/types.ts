@@ -34,6 +34,8 @@ export interface Task {
   status: TaskStatus;
   snoozed_until: string | null;
   gmail_url: string;
+  /** the email this task came from has a file attachment */
+  has_attachment?: boolean;
   updated_at: string;
 }
 

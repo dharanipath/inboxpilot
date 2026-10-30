@@ -23,6 +23,7 @@ const taskWithEmail = Prisma.validator<Prisma.TaskDefaultArgs>()({
         fromEmail: true,
         subject: true,
         receivedAt: true,
+        hasAttachment: true,
       },
     },
   },
@@ -34,6 +35,8 @@ export interface TaskDto extends AgentTask {
   status: TaskStatus;
   snoozed_until: string | null;
   gmail_url: string;
+  /** the email this task came from carries a file attachment */
+  has_attachment: boolean;
   updated_at: string;
 }
 
@@ -86,6 +89,7 @@ export function toDto(row: TaskRow, today: string): TaskDto {
     status: row.status as TaskStatus,
     snoozed_until: row.snoozedUntil ? row.snoozedUntil.toISOString() : null,
     gmail_url: `https://mail.google.com/mail/u/0/#inbox/${encodeURIComponent(row.email.threadId)}`,
+    has_attachment: row.email.hasAttachment,
     updated_at: row.updatedAt.toISOString(),
   };
 }

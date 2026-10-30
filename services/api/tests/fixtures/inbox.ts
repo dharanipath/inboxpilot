@@ -289,6 +289,8 @@ export class FixtureMailSource implements MailSource {
     const emails = fixtureInbox(opts.now, user.timezone)
       .filter((e) => Date.parse(e.received_at) >= cutoff)
       .slice(0, opts.max);
-    return Promise.resolve({ emails, mode: "full" });
+    // msg-01 (the CEO's request) is the synthetic inbox's one email with an attachment
+    const attachmentIds = emails.filter((e) => e.id === "msg-01").map((e) => e.id);
+    return Promise.resolve({ emails, attachmentIds, mode: "full" });
   }
 }

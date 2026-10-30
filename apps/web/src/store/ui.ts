@@ -7,20 +7,23 @@ import { DEFAULT_PALETTE, type Palette } from "@/lib/palettes";
 
 export type Theme = "system" | "light" | "dark";
 
+/** the Type filter: every task type, plus "attachments" (tasks from emails with a file) */
+export type TypeFilter = TaskType | "all" | "attachments";
+
 interface UiState {
   theme: Theme;
   /** colour theme (see lib/palettes.ts), combined with the light/dark mode */
   palette: Palette;
   /** live dashboard background (see lib/backdrops.ts) */
   backdrop: Backdrop;
-  typeFilter: TaskType | "all";
+  typeFilter: TypeFilter;
   priorityFilter: Priority | "all";
   /** the sync run whose live progress the agent panel is showing */
   activeRunId: string | null;
   setTheme: (t: Theme) => void;
   setPalette: (p: Palette) => void;
   setBackdrop: (b: Backdrop) => void;
-  setTypeFilter: (t: TaskType | "all") => void;
+  setTypeFilter: (t: TypeFilter) => void;
   setPriorityFilter: (p: Priority | "all") => void;
   setActiveRun: (id: string | null) => void;
   resetFilters: () => void;

@@ -125,6 +125,25 @@ function isAttachment(part: GmailPart): boolean {
   return /^\s*attachment/i.test(disposition);
 }
 
+/**
+ * A real file: a named part or an "attachment" disposition. Inline images that are embedded in
+ * the body (disposition "inline" with a Content-ID, e.g. a signature logo) do not count.
+ */
+function isFileAttachment(part: GmailPart): boolean {
+  const disposition = header(part.headers, "Content-Disposition") ?? "";
+  if (/^\s*attachment/i.test(disposition)) return true;
+  if (!part.filename) return false;
+  const embedded =
+    /^\s*inline/i.test(disposition) && header(part.headers, "Content-ID") !== undefined;
+  return !embedded;
+}
+
+/** Does this message carry a file attachment anywhere in its MIME tree? */
+export function hasAttachment(part: GmailPart | undefined): boolean {
+  if (!part) return false;
+  return isFileAttachment(part) || (part.parts ?? []).some(hasAttachment);
+}
+
 function decodePart(part: GmailPart): string | null {
   const data = part.body?.data;
   if (!data) return null;

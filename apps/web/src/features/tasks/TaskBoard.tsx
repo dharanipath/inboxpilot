@@ -1,14 +1,22 @@
 import { AnimatePresence } from "framer-motion";
-import { ChevronRight, FilterX, Inbox } from "lucide-react";
+import { ChevronRight, ExternalLink, FilterX, Inbox, Paperclip } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type { Bucket, Priority, Task, TaskType } from "@/api/types";
+import type { Bucket, Priority, RecentEmail, Task } from "@/api/types";
 import { Button } from "@/components/ui/button";
-import { groupByDay, PRIORITY_META, sortTasks, TYPE_LABEL } from "@/lib/format";
+import { useAttachmentEmails } from "@/api/hooks";
+import {
+  dayLabel,
+  groupByDay,
+  PRIORITY_META,
+  sortTasks,
+  timeLabel,
+  TYPE_LABEL,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { useUi } from "@/store/ui";
+import { type TypeFilter, useUi } from "@/store/ui";
 
-import { TaskCard, type TaskActions } from "./TaskCard";
+import { closedState, TaskCard, type TaskActions } from "./TaskCard";
 
 interface Props {
   tasks: Task[];
@@ -18,13 +26,11 @@ interface Props {
   emptyAction?: ReactNode;
 }
 
-export function applyFilters(
-  tasks: Task[],
-  type: TaskType | "all",
-  priority: Priority | "all",
-): Task[] {
+export function applyFilters(tasks: Task[], type: TypeFilter, priority: Priority | "all"): Task[] {
   return tasks.filter(
-    (t) => (type === "all" || t.type === type) && (priority === "all" || t.priority === priority),
+    (t) =>
+      (type === "all" || (type === "attachments" ? t.has_attachment === true : t.type === type)) &&
+      (priority === "all" || t.priority === priority),
   );
 }
 
@@ -34,6 +40,7 @@ export function TaskBoard({ tasks, today, timezone, actions, emptyAction }: Prop
   const { typeFilter, priorityFilter, resetFilters } = useUi();
   const visible = applyFilters(tasks, typeFilter, priorityFilter);
   const filtered = typeFilter !== "all" || priorityFilter !== "all";
+  const attachmentMail = useAttachmentEmails(typeFilter === "attachments");
 
   if (!tasks.length) {
     return (
@@ -47,6 +54,15 @@ export function TaskBoard({ tasks, today, timezone, actions, emptyAction }: Prop
     );
   }
 
+  // "Has attachments": tasks from those emails show on the board like any other filter; emails with
+  // no open task get a card too, so every email with a file is listed (the priority filter is about tasks)
+  const now = new Date();
+  const noTaskMail =
+    typeFilter === "attachments" && priorityFilter === "all"
+      ? (attachmentMail.data?.items ?? []).filter((e) => e.tasks.every((t) => closedState(t, now)))
+      : [];
+  const waitingForMail = typeFilter === "attachments" && attachmentMail.isLoading;
+
   const card = (t: Task) => (
     <TaskCard key={t.id} task={t} today={today} timezone={timezone} {...actions} />
   );
@@ -57,7 +73,7 @@ export function TaskBoard({ tasks, today, timezone, actions, emptyAction }: Prop
   return (
     <div className="space-y-6">
       <FilterBar />
-      {!visible.length && filtered ? (
+      {!visible.length && filtered && !noTaskMail.length && !waitingForMail ? (
         <EmptyPanel
           icon={<FilterX />}
           title="No tasks match these filters"
@@ -67,6 +83,21 @@ export function TaskBoard({ tasks, today, timezone, actions, emptyAction }: Prop
             Clear filters
           </Button>
         </EmptyPanel>
+      ) : null}
+
+      {noTaskMail.length ? (
+        <section aria-labelledby="h-attachment-mail" className="space-y-3">
+          <SectionHeading
+            id="h-attachment-mail"
+            title="Emails with attachments"
+            count={noTaskMail.length}
+          />
+          <ul className="space-y-2">
+            {noTaskMail.map((e) => (
+              <AttachmentMailCard key={e.id} email={e} today={today} timezone={timezone} />
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <Section
@@ -140,6 +171,66 @@ export function TaskBoard({ tasks, today, timezone, actions, emptyAction }: Prop
         </details>
       ) : null}
     </div>
+  );
+}
+
+/** An email with an attachment and no open task, drawn like a task card. */
+function AttachmentMailCard({
+  email,
+  today,
+  timezone,
+}: {
+  email: RecentEmail;
+  today: string;
+  timezone: string;
+}) {
+  const sender = email.from_name ?? email.from_email ?? "Unknown sender";
+  const subject = email.subject || "(no subject)";
+  const titleId = `mail-${email.id}-title`;
+  return (
+    <li
+      aria-labelledby={titleId}
+      className="group flex gap-3 rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md sm:p-4"
+      data-testid="attachment-mail-card"
+    >
+      <span
+        className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground"
+        title="Has an attachment"
+      >
+        <Paperclip className="size-4" aria-hidden="true" />
+        <span className="sr-only">Has an attachment</span>
+      </span>
+      <div className="min-w-0 flex-1">
+        <p id={titleId} className="text-sm font-medium leading-snug">
+          {subject}
+        </p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">
+            {dayLabel(email.local_date, today)}, {timeLabel(email.received_at, timezone)}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>Attachment</span>
+          <span aria-hidden="true">·</span>
+          <span className="truncate">From {sender}</span>
+        </p>
+        <p className="mt-2 border-l-2 pl-2 text-xs italic text-muted-foreground">
+          {email.tasks.length ? "Its tasks are done or dismissed" : "No task found in this email"}
+        </p>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-start">
+        <Button size="icon-sm" variant="outline" asChild>
+          <a
+            href={email.gmail_url}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label={`Open "${subject}" in Gmail`}
+            title={`Open "${subject}" in Gmail`}
+          >
+            <ExternalLink />
+          </a>
+        </Button>
+      </div>
+    </li>
   );
 }
 
@@ -223,7 +314,7 @@ export function FilterBar() {
         <span className="sr-only sm:not-sr-only">Type</span>
         <select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as TaskType | "all")}
+          onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
           className="h-8 rounded-md border bg-card px-2 text-xs text-foreground"
           aria-label="Task type"
           title="Show only tasks of this type"
@@ -234,6 +325,7 @@ export function FilterBar() {
               {label}
             </option>
           ))}
+          <option value="attachments">Has attachments</option>
         </select>
       </label>
     </div>

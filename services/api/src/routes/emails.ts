@@ -12,6 +12,8 @@ import { addDays, localDate } from "../lib/time.js";
 const EmailsQuery = z.object({
   days: z.coerce.number().int().min(1).max(30).default(7),
   limit: z.coerce.number().int().min(1).max(500).default(200),
+  /** only emails that have a file attachment; unlike the default view, today is included */
+  attachments: z.enum(["1", "true"]).optional(),
 });
 
 const MailParams = z.object({ id: z.string().min(1).max(200) });
@@ -46,6 +48,7 @@ export const emailRoutes =
       const now = new Date();
       const today = localDate(user.timezone, now);
       const from = addDays(today, -q.days); // inclusive; today itself is excluded
+      const until = q.attachments ? addDays(today, 1) : today; // exclusive
       // a time window a day wider on each side, then the exact local-date filter
       const candidates = await ctx.prisma.email.findMany({
         where: {
@@ -54,12 +57,13 @@ export const emailRoutes =
             gte: new Date(now.getTime() - (q.days + 2) * 86_400_000),
             lt: now,
           },
+          ...(q.attachments ? { hasAttachment: true } : {}),
         },
         orderBy: { receivedAt: "desc" },
       });
       const emails = candidates
         .map((e) => ({ ...e, localDate: localDate(user.timezone, e.receivedAt) }))
-        .filter((e) => e.localDate >= from && e.localDate < today)
+        .filter((e) => e.localDate >= from && e.localDate < until)
         .slice(0, q.limit);
       const rows = await listTasks(
         ctx.prisma,

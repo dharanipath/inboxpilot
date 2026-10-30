@@ -119,7 +119,7 @@ export class SyncService {
       const { emails } = listing;
       fetchedIds.push(...emails.map((e) => e.id));
 
-      const rowIds = await this.recordEmails(user.id, emails);
+      const rowIds = await this.recordEmails(user.id, emails, listing.attachmentIds ?? []);
       const done = await this.alreadyProcessed(user.id, emails);
       const todo = reprocess ? emails : emails.filter((e) => !done.has(e.id));
       await this.d.events.publish(runId, "triage", {
@@ -233,7 +233,12 @@ export class SyncService {
     }
   }
 
-  private async recordEmails(userId: string, emails: EmailInput[]): Promise<Map<string, string>> {
+  private async recordEmails(
+    userId: string,
+    emails: EmailInput[],
+    attachmentIds: string[] = [],
+  ): Promise<Map<string, string>> {
+    const withFiles = new Set(attachmentIds);
     if (emails.length) {
       await this.d.prisma.email.createMany({
         data: emails.map((e) => ({
@@ -244,9 +249,17 @@ export class SyncService {
           fromEmail: e.from_email,
           subject: e.subject,
           receivedAt: new Date(e.received_at),
+          hasAttachment: withFiles.has(e.id),
         })),
         skipDuplicates: true,
       });
+      if (withFiles.size) {
+        // mail stored before this feature, or re-read: flag it now
+        await this.d.prisma.email.updateMany({
+          where: { userId, gmailId: { in: [...withFiles] }, hasAttachment: false },
+          data: { hasAttachment: true },
+        });
+      }
     }
     const rows = await this.d.prisma.email.findMany({
       where: { userId, gmailId: { in: emails.map((e) => e.id) } },

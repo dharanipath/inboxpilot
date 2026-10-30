@@ -9,6 +9,7 @@ import {
   decodeEntities,
   extractBody,
   gmailToEmail,
+  hasAttachment,
   htmlToText,
   MAX_BODY_CHARS,
   parseAddressList,
@@ -121,6 +122,43 @@ describe("MIME parsing", () => {
     expect(decodeEncodedWords("plain subject")).toBe("plain subject");
     expect(decodeEntities("&#x1F600;&bogus;&#0;")).toBe("😀&bogus;&#0;");
     expect(htmlToText("a<br>b")).toBe("a\nb");
+  });
+
+  it("detects real file attachments, but not embedded inline images", () => {
+    const filePart = {
+      mimeType: "application/pdf",
+      filename: "invoice.pdf",
+      headers: [{ name: "Content-Disposition", value: 'attachment; filename="invoice.pdf"' }],
+      body: { attachmentId: "a1", size: 100 },
+    };
+    const text = { mimeType: "text/plain", body: { data: "aGk=" } };
+    expect(hasAttachment({ mimeType: "multipart/mixed", parts: [text, filePart] })).toBe(true);
+    // nested deeper in the MIME tree
+    expect(
+      hasAttachment({
+        mimeType: "multipart/mixed",
+        parts: [{ mimeType: "multipart/related", parts: [filePart] }],
+      }),
+    ).toBe(true);
+    // a named part with no disposition still counts
+    expect(
+      hasAttachment({ mimeType: "multipart/mixed", parts: [text, { filename: "notes.txt" }] }),
+    ).toBe(true);
+    // a signature logo embedded in the body is not an attachment
+    const logo = {
+      mimeType: "image/png",
+      filename: "logo.png",
+      headers: [
+        { name: "Content-Disposition", value: 'inline; filename="logo.png"' },
+        { name: "Content-ID", value: "<logo1>" },
+      ],
+    };
+    expect(hasAttachment({ mimeType: "multipart/related", parts: [text, logo] })).toBe(false);
+    expect(hasAttachment({ mimeType: "text/plain", body: { data: "aGk=" } })).toBe(false);
+    expect(hasAttachment(undefined)).toBe(false);
+    // the fake Google's attachment option produces a detectable message
+    expect(hasAttachment(gmailMessage({ id: "a", attachment: true }).payload)).toBe(true);
+    expect(hasAttachment(gmailMessage({ id: "b" }).payload)).toBe(false);
   });
 
   it("maps a Gmail message to the contract's EmailInput", () => {

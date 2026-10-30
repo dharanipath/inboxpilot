@@ -43,6 +43,8 @@ model Email {
   status      String    @default("pending") // pending | processed | skipped | failed
   skipReason  String?   @map("skip_reason")
   processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+  /// true when Gmail reported a real file attachment (inline images do not count)
+  hasAttachment Boolean @default(false) @map("has_attachment")
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks Task[]

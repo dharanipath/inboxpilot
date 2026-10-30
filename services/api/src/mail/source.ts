@@ -17,6 +17,8 @@ export interface ListOptions {
 
 export interface ListResult {
   emails: EmailInput[];
+  /** Ids (a subset of `emails`) that carry a file attachment. Kept apart from EmailInput, which is the agent's strict contract. */
+  attachmentIds?: string[];
   /** Saved after a successful run and passed back as `since` next time. */
   checkpoint?: string | null;
   mode: "full" | "incremental";

@@ -1,7 +1,7 @@
 import type { EmailInput } from "../agent/types.js";
 import type { ListOptions, ListResult, MailSource, MailUser } from "../mail/source.js";
 import { type GmailClient, type GmailOptions, HistoryExpired } from "./gmail.js";
-import { gmailToEmail } from "./mime.js";
+import { gmailToEmail, hasAttachment } from "./mime.js";
 
 const SKIP_LABELS = ["CATEGORY_PROMOTIONS", "CATEGORY_SOCIAL", "SPAM", "TRASH", "DRAFT"];
 
@@ -51,10 +51,10 @@ export class GmailMailSource implements MailSource {
     ids ??= await gmail.listMessageIds(listQuery(opts.days), opts.max);
 
     const messages = await pool(ids, this.concurrency, (id) => gmail.message(id));
-    const emails: EmailInput[] = messages
-      .filter((m) => !(m.labelIds ?? []).some((l) => SKIP_LABELS.includes(l)))
-      .map(gmailToEmail);
-    return { emails, checkpoint: historyId, mode };
+    const kept = messages.filter((m) => !(m.labelIds ?? []).some((l) => SKIP_LABELS.includes(l)));
+    const emails: EmailInput[] = kept.map(gmailToEmail);
+    const attachmentIds = kept.filter((m) => hasAttachment(m.payload)).map((m) => m.id);
+    return { emails, attachmentIds, checkpoint: historyId, mode };
   }
 }
 

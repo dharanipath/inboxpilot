@@ -153,6 +153,17 @@ export function useAddTaskFromEmail() {
   });
 }
 
+/** Emails with a file attachment (last 14 days, today included): the "Has attachments" Type option. */
+export function useAttachmentEmails(enabled: boolean) {
+  return useQuery({
+    queryKey: [...keys.allEmails, "attachments"] as const,
+    queryFn: () => api<RecentEmailPage>("/api/emails?attachments=1&days=14"),
+    enabled,
+    retry: noRetryOn401,
+    refetchInterval: REFRESH_MS,
+  });
+}
+
 /** Everything that depends on task state. */
 export function invalidateTaskData(qc: QueryClient) {
   return Promise.all([

@@ -408,6 +408,30 @@ describe("Gmail sync", () => {
     expect(deck?.gmail_url).toBe("https://mail.google.com/mail/u/0/#inbox/thr-g1");
   });
 
+  it("records which emails have a file attachment, without changing what the agent receives", async () => {
+    seedInbox();
+    const { cookie } = await signIn();
+    await syncAndWait(t, cookie);
+    const flags = async () => {
+      const rows = await t.container.deps.prisma.email.findMany({
+        where: { user: { email: "sam@gmail.example" } },
+        select: { gmailId: true, hasAttachment: true },
+      });
+      return Object.fromEntries(rows.map((r) => [r.gmailId, r.hasAttachment]));
+    };
+    expect(await flags()).toMatchObject({ g1: false, g2: false, g5: true });
+
+    // the agent's strict contract is untouched: no extra field in what it is sent
+    const sent = t.agent.extractCalls.flatMap((c) => c.emails);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(sent.every((e) => !("has_attachment" in e))).toBe(true);
+
+    // mail stored before this feature (flag still false) is flagged when it is read again
+    await t.container.deps.prisma.email.updateMany({ data: { hasAttachment: false } });
+    await syncAndWait(t, cookie, { reprocess: true });
+    expect(await flags()).toMatchObject({ g1: false, g2: false, g5: true });
+  });
+
   it("then syncs incrementally from the history id, fetching only new mail", async () => {
     seedInbox();
     const { cookie } = await signIn();
