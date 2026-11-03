@@ -1,7 +1,7 @@
 -r requirements.txt
 jsonschema>=4.23
 respx>=0.21
-pytest>=8
+pytest>=9.1.1
 pytest-cov>=5
 ruff>=0.6
 mypy>=1.11
